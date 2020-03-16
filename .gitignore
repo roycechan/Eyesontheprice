@@ -1,4 +1,15 @@
 # Created by .ignore support plugin (hsz.mobi)
-credentials.py
+
+
 .gitignore
 .idea/
+.ipynb_checkpoints/
+Untitled.ipynb
+__pycache__/
+credentials.py
+db.sqlite3
+manage.py
+polls/
+telegram_test.ipynb
+templates/
+tracker/

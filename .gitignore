@@ -6,7 +6,7 @@
 .ipynb_checkpoints/
 Untitled.ipynb
 __pycache__/
-credentials.py
+tracker/credentials.py
 db.sqlite3
 manage.py
 polls/

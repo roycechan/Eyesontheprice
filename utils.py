@@ -18,7 +18,7 @@ def extract_shopee_identifiers(url):
     return parameters
 
 
-def build_url(url, parameters):
+def build_search_url(url, parameters):
     final_url = url + urllib.parse.urlencode(parameters)
     return final_url
 

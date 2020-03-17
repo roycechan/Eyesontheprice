@@ -28,7 +28,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, DISPLAY_VARIANTS, PROMPT_URL, LOCATION, BIO = range(5)
+INITIAL_CHOICE, CHOOSE_FREQUENCY, CHOOSE_VARIANT, LOCATION, BIO = range(5)
 SUPPORTED_CHANNELS = ['shopee']
 reply_keyboard = [['Compare Prices', 'Track Prices']]
 
@@ -43,16 +43,24 @@ def start(update, context):
     return INITIAL_CHOICE
 
 
+def compare(update, context):
+    return INITIAL_CHOICE
+
+
+def track(update, context):
+    return INITIAL_CHOICE
+
+
 def prompt_url(update, context):
     user = update.message.from_user
     logger.info("%s chose: %s", user.first_name, update.message.text)
     update.message.reply_text('I see! Please enter a valid shopee URL',
                               reply_markup=ReplyKeyboardRemove())
 
-    return PROMPT_URL
+    return CHOOSE_VARIANT
 
 
-def get_url(update, context):
+def get_url_and_variant(update, context):
     user = update.message.from_user
     logger.info("%s entered URL: %s", user.first_name, update.message.text)
     # Extract URL
@@ -82,16 +90,45 @@ def get_url(update, context):
         else:
             update.message.reply_text('Brb! Fetching product variants...')
 
-        return DISPLAY_VARIANTS
+            if context.chat_data['channel'] == "shopee":
+                parameters = utils.extract_shopee_identifiers(context.chat_data['search_url'])
+                shopee_item_details = utils.retrieve_item_details_json(
+                    utils.build_search_url(utils.SHOPEE_SEARCH_LINK, parameters))
+                # todo: Store item details in DB
+                item_name = shopee_item_details['item']['name']
+                logger.info("Item name: %s", item_name)
+                # Fetch variants
+                variants = []
+                for variant in shopee_item_details['item']['models']:
+                    name = variant['name'].title()
+                    price = variant['price'] / 100000
+                    quantity = variant['stock']
+                    option = (f'{name} - ${price:.2f} ({quantity} left)')
+                    variants.append(option)
+                logger.info("Variants: %s", variants)
+                context.chat_data['variants_displayed'] = variants
 
-def display_variants(update, context):
-    # Get variants from previous method
+                # if list is empty, display main product price
+                if not variants:
+                    price = shopee_item_details['item']['price'] / 100000
+                    quantity = shopee_item_details['item']['stock']
+                    option = (f'{item_name} - ${price:.2f} ({quantity} left)')
+                    variants.append(option)
 
-    # Fetch variants
+                update.message.reply_text(f'Hurray! We found {item_name}.\n\n'
+                                          'Which variant would you like to track?',
+                                          reply_markup=ReplyKeyboardMarkup.from_column(variants,
+                                                                           one_time_keyboard=True))
 
-    user = update.message.from_user
-    logger.info("%s entered URL: %s", user.first_name, search_url)
+                return CHOOSE_FREQUENCY
 
+
+def get_frequency(update, context):
+    chosen_variant = update.message.text
+    variants_displayed = context.chat_data['variants_displayed']
+    if chosen_variant in variants_displayed:
+        chosen_variant_index = variants_displayed.index(chosen_variant)
+        logger.info("Chosen Variant Index: %s", chosen_variant_index)
     return BIO
 
 
@@ -171,14 +208,16 @@ def main():
         entry_points=[CommandHandler('start', start)],
 
         states={
-            INITIAL_CHOICE: [MessageHandler(Filters.regex('^(Compare Prices|Track Prices)$'), prompt_url)],
+            INITIAL_CHOICE: [MessageHandler(Filters.regex('^(Compare Prices|Track Prices)$'), prompt_url),
+                             CommandHandler('compare', prompt_url),
+                             CommandHandler('track', prompt_url)],
             #
             # PHOTO: [MessageHandler(Filters.photo, photo),
             #         CommandHandler('skip', skip_photo)],
 
-            PROMPT_URL: [MessageHandler(Filters.text, get_url)],
+            CHOOSE_VARIANT: [MessageHandler(Filters.text, get_url_and_variant)],
 
-            DISPLAY_VARIANTS: [MessageHandler(Filters.regex('^(Compare Prices|Track Prices)$'), display_variants())],
+            CHOOSE_FREQUENCY: [MessageHandler(Filters.text, get_frequency)],
 
             LOCATION: [MessageHandler(Filters.location, location),
                        CommandHandler('skip', skip_location)],

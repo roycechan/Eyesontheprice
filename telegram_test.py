@@ -28,9 +28,10 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_FREQUENCY, CHOOSE_VARIANT, LOCATION, BIO = range(5)
+INITIAL_CHOICE, CHOOSE_FREQUENCY, CHOOSE_VARIANT, STORE_FREQUENCY, BIO = range(5)
 SUPPORTED_CHANNELS = ['shopee']
-reply_keyboard = [['Compare Prices', 'Track Prices']]
+start_reply_keyboard = [['Compare Prices', 'Track Prices']]
+frequency_reply_keyboard = ['Update me daily', 'Update me weekly','Update me only when the price drops']
 
 
 def start(update, context):
@@ -38,14 +39,13 @@ def start(update, context):
         'Hi! My name is Pricey. I make it easy for you to compare and track prices across platforms '
         'Send /cancel to stop talking to me.\n\n'
         'What can I do for you today?',
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+        reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
 
     return INITIAL_CHOICE
 
 
 def compare(update, context):
     return INITIAL_CHOICE
-
 
 def track(update, context):
     return INITIAL_CHOICE
@@ -60,17 +60,17 @@ def prompt_url(update, context):
     return CHOOSE_VARIANT
 
 
-def get_url_and_variant(update, context):
+def get_url_and_display_variant(update, context):
     user = update.message.from_user
-    logger.info("%s entered URL: %s", user.first_name, update.message.text)
+    logger.info("%s entered for URL: %s", user.first_name, update.message.text)
     # Extract URL
     p = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
 
     url_list = p.findall(update.message.text)
     if not url_list:
-        update.message.reply_text('Oops! You did not key in a valid URL...',
+        update.message.reply_text('Oops! You did not key in a valid URL...\n\n'
                                   "Let's try again!",
-                                  reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+                                  reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
         return INITIAL_CHOICE
     else:
         search_url = url_list[0]
@@ -85,7 +85,7 @@ def get_url_and_variant(update, context):
         if context.chat_data['channel'] not in SUPPORTED_CHANNELS:
             update.message.reply_text('Oops! You did not key in a valid URL...',
                                       "Let's try again!",
-                                      reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+                                      reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
             return INITIAL_CHOICE
         else:
             update.message.reply_text('Brb! Fetching product variants...')
@@ -96,6 +96,7 @@ def get_url_and_variant(update, context):
                     utils.build_search_url(utils.SHOPEE_SEARCH_LINK, parameters))
                 # todo: Store item details in DB
                 item_name = shopee_item_details['item']['name']
+                context.chat_data['product_name'] = item_name
                 logger.info("Item name: %s", item_name)
                 # Fetch variants
                 variants = []
@@ -123,14 +124,39 @@ def get_url_and_variant(update, context):
                 return CHOOSE_FREQUENCY
 
 
-def get_frequency(update, context):
+def get_variant_and_display_frequency(update, context):
+    user = update.message.from_user
     chosen_variant = update.message.text
+    context.chat_data['chosen_variant'] = chosen_variant
     variants_displayed = context.chat_data['variants_displayed']
     if chosen_variant in variants_displayed:
         chosen_variant_index = variants_displayed.index(chosen_variant)
-        logger.info("Chosen Variant Index: %s", chosen_variant_index)
-    return BIO
+        logger.info("%s chose variant %s: %s", user, chosen_variant_index, chosen_variant)
+        #todo Store variant that user wants to track in DB
 
+        # Display frequency
+        update.message.reply_text(f'When should we update you again?',
+                                  reply_markup=ReplyKeyboardMarkup.from_column(frequency_reply_keyboard,
+                                                                               one_time_keyboard=True))
+    return STORE_FREQUENCY
+
+
+def get_frequency(update, context):
+    user = update.message.from_user
+    chosen_frequency = update.message.text
+    context.chat_data['chosen_frequency'] = chosen_frequency
+    if chosen_frequency in frequency_reply_keyboard:
+        chosen_frequency_index = frequency_reply_keyboard.index(chosen_frequency)
+        logger.info("%s chose frequency %s: %s", user, chosen_frequency_index, chosen_frequency)
+        # todo Store frequency that user wants to track in DB
+        # todo Store user details
+        # todo set callback details
+        update.message.reply_text(f"Super! You've chosen to track {context.chat_data['product_name']}:\n\n"
+                                  f"Product Variant: {context.chat_data['chosen_variant']}\n\n"
+                                  f"Updates: {context.chat_data['chosen_frequency']}\n\n"
+                                  "I'll end the conversation now, hit me up any time!")
+
+    return ConversationHandler.END
 
 def photo(update, context):
     user = update.message.from_user
@@ -140,7 +166,7 @@ def photo(update, context):
     update.message.reply_text('Gorgeous! Now, send me your location please, '
                               'or send /skip if you don\'t want to.')
 
-    return LOCATION
+    return BIO
 
 
 def skip_photo(update, context):
@@ -149,18 +175,9 @@ def skip_photo(update, context):
     update.message.reply_text('I bet you look great! Now, send me your location please, '
                               'or send /skip.')
 
-    return LOCATION
-
-
-def location(update, context):
-    user = update.message.from_user
-    user_location = update.message.location
-    logger.info("Location of %s: %f / %f", user.first_name, user_location.latitude,
-                user_location.longitude)
-    update.message.reply_text('Maybe I can visit you sometime! '
-                              'At last, tell me something about yourself.')
-
     return BIO
+
+
 
 
 def skip_location(update, context):
@@ -205,22 +222,20 @@ def main():
 
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler('start', start),
+                      CommandHandler('compare', prompt_url),
+                      CommandHandler('track', prompt_url)
+                      ],
 
         states={
             INITIAL_CHOICE: [MessageHandler(Filters.regex('^(Compare Prices|Track Prices)$'), prompt_url),
-                             CommandHandler('compare', prompt_url),
-                             CommandHandler('track', prompt_url)],
-            #
-            # PHOTO: [MessageHandler(Filters.photo, photo),
-            #         CommandHandler('skip', skip_photo)],
+                             ],
 
-            CHOOSE_VARIANT: [MessageHandler(Filters.text, get_url_and_variant)],
+            CHOOSE_VARIANT: [MessageHandler(Filters.text, get_url_and_display_variant)],
 
-            CHOOSE_FREQUENCY: [MessageHandler(Filters.text, get_frequency)],
+            CHOOSE_FREQUENCY: [MessageHandler(Filters.text, get_variant_and_display_frequency)],
 
-            LOCATION: [MessageHandler(Filters.location, location),
-                       CommandHandler('skip', skip_location)],
+            STORE_FREQUENCY: [MessageHandler(Filters.text, get_frequency)],
 
             BIO: [MessageHandler(Filters.text, bio)]
         },

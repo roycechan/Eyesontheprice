@@ -13,3 +13,4 @@ polls/
 telegram_test.ipynb
 templates/
 tracker/
+credentials.py

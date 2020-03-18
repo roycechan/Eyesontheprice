@@ -6,11 +6,10 @@
 .ipynb_checkpoints/
 Untitled.ipynb
 __pycache__/
-tracker/credentials.py
+credentials.py
 db.sqlite3
 manage.py
 polls/
 telegram_test.ipynb
 templates/
 tracker/
-credentials.py

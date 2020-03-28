@@ -174,6 +174,7 @@ def get_frequency(update, context):
     if chosen_threshold in frequency_reply_keyboard:
         chosen_threshold_index = frequency_reply_keyboard.index(chosen_threshold)
         logger.info("%s chose thresholds %s: %s", user.first_name, chosen_threshold_index, chosen_threshold)
+        logger.info(user)
         # todo Store user details
         # todo set callback details
         update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['product_name']}`\n\n"

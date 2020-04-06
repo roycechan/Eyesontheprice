@@ -13,7 +13,7 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 import plotly_test
-import utils
+import utils, db_utils, shopee_utils
 import logging
 from credentials import TELEGRAM_TOKEN
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
@@ -58,7 +58,12 @@ def track(update, context):
 
 
 def prompt_url(update, context):
+    # store char id and user data
     user = update.message.from_user
+    context.chat_data['user'] = user
+    context.chat_data['chat_id'] = str(update.message.chat.id)
+    logger.info(f"Stored user: {context.chat_data['user']} and chat_id: {context.chat_data['chat_id']}")
+
     logger.info("%s chose: %s", user.first_name, update.message.text)
     update.message.reply_text('All right! Please paste a Shopee product URL from either the app or online',
                               reply_markup=ReplyKeyboardRemove())
@@ -105,52 +110,33 @@ def get_url_and_display_variant(update, context):
             update.message.reply_text('Brb! Fetching product variants...')
 
             if context.chat_data['channel'] == "shopee":
-                parameters = utils.extract_shopee_identifiers(context.chat_data['search_url'])
-                shopee_item_details = utils.retrieve_item_details_json(
-                    utils.build_search_url(utils.SHOPEE_SEARCH_LINK, parameters))
-                # todo: Store item details in DB
-                item_name = shopee_item_details['item']['name']
-                context.chat_data['product_name'] = item_name
-                logger.info("Item name: %s", item_name)
-                # Fetch variants
-                variant_display = []
-                variants = []
-                for variant in shopee_item_details['item']['models']:
-                    variant_dict = {}
-                    variant_dict['id'] = variant['itemid']
-                    variant_dict['name'] = variant['name'].title()
-                    variant_dict['price'] = variant['price'] / 100000
-                    variant_dict['quantity'] = variant['stock']
-                    option = (f"{variant_dict['name']} - ${variant_dict['price']:.2f} ({variant_dict['quantity']} left)")
-                    variants.append(variant_dict)
-                    variant_display.append(option)
-                logger.info("Variants: %s", variant_display)
-                context.chat_data['variants'] = variants
-                context.chat_data['variants_displayed'] = variant_display
+                item_json = shopee_utils.get_shopee_json(search_url)
+                item_dict, variants, variants_display = shopee_utils.get_shopee_variants(item_json)
 
-                # if list is empty, display main product price
-                if not variants:
-                    variant_dict = {}
-                    variant_dict['id'] = shopee_item_details['item']['itemid']
-                    variant_dict['name'] = item_name
-                    variant_dict['price'] = shopee_item_details['item']['price'] / 100000
-                    variant_dict['quantity'] = shopee_item_details['item']['stock']
-                    option = (f"{variant_dict['name']} - ${variant_dict['price']:.2f} ({variant_dict['quantity']} left)")
-                    variants.append(variant_dict)
-                    variant_display.append(option)
-                    context.chat_data['variants'] = variants
-                    context.chat_data['variants_displayed'] = variant_display
+                logger.info("Item name: %s", item_dict['item_name'])
+                logger.info("Variants: %s", variants_display)
 
-                update.message.reply_markdown(f'Hurray! We found \n\n`{item_name}`\n\n'
+                update.message.reply_markdown(f'Hurray! We found \n\n`{item_dict["item_name"]}`\n\n'
                                           'Which variant would you like to track?',
-                                          reply_markup=ReplyKeyboardMarkup.from_column(variant_display,
+                                          reply_markup=ReplyKeyboardMarkup.from_column(variants_display,
                                                                            one_time_keyboard=True))
+
+                # Store item in context
+                context.chat_data['item'] = item_dict
+                context.chat_data['variants'] = variants
+                context.chat_data['variants_displayed'] = variants_display
+                logger.info(context.chat_data)
+                # print(context.chat_data['chat'])
+                # Store item details in DB
+                db_utils.add_item(item_dict)
 
                 return CHOOSE_FREQUENCY
 
 
 def get_variant_and_display_frequency(update, context):
     user = update.message.from_user
+
+    # Get index of chosen variant
     chosen_variant = update.message.text
     context.chat_data['chosen_variant'] = chosen_variant
     variants_displayed = context.chat_data['variants_displayed']
@@ -158,7 +144,9 @@ def get_variant_and_display_frequency(update, context):
         chosen_variant_index = variants_displayed.index(chosen_variant)
         context.chat_data['chosen_variant_index'] = chosen_variant_index
         logger.info("%s chose variant %s: %s", user.first_name, chosen_variant_index, chosen_variant)
-        #todo Store variant that user wants to track in DB
+
+        #todo Store item variant
+        db_utils.add_item_variant(context)
 
         # Display frequency
         update.message.reply_text(f'Would you like to receive updates when the price drops?',
@@ -168,6 +156,8 @@ def get_variant_and_display_frequency(update, context):
 
 
 def get_frequency(update, context):
+    chat_id = str(update.message.chat.id)
+    print(chat_id)
     user = update.message.from_user
     chosen_threshold = update.message.text
     context.chat_data['chosen_threshold'] = chosen_threshold
@@ -177,7 +167,7 @@ def get_frequency(update, context):
         logger.info(user)
         # todo Store user details
         # todo set callback details
-        update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['product_name']}`\n\n"
+        update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n\n"
                                       f"_Variant_: {context.chat_data['chosen_variant']}\n"
                                       f"_Notifications_: {context.chat_data['chosen_threshold']}\n\n"
                                       "This chart will update daily. Check back again tomorrow!")
@@ -190,8 +180,8 @@ def send_first_graph(update, context):
 
     # Get price
     chosen_variant_index = context.chat_data['chosen_variant_index']
-    chosen_variant_price = context.chat_data['variants'][chosen_variant_index]['price']
-    chosen_variant_id = context.chat_data['variants'][chosen_variant_index]['id']
+    chosen_variant_price = context.chat_data['variants'][chosen_variant_index]['last_updated_price']
+    chosen_variant_id = context.chat_data['variants'][chosen_variant_index]['variant_id']
     # Get photo
     photo_url = plotly_test.create_image_test(variant_id=chosen_variant_id, chat_id=chat_id)
     # update.message.reply_photo(photo=open("images/fig1.png", "rb"))
@@ -310,4 +300,5 @@ def main():
 
 
 if __name__ == '__main__':
+    db = db_utils.db_connect("eyesontheprice")
     main()

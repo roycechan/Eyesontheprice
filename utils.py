@@ -17,18 +17,7 @@ def extract_domain(url):
     return extracted.domain
 
 
-def extract_shopee_identifiers(url):
-    # Identify whether app or web link
-    # App Link
-    parameters = {}
-    if "product" in url:
-        product_path = urlparse(url).path.split('/')
-    # Web Link
-    else:
-        product_path = urlparse(url).path.split('.')
-    parameters['itemid'] = product_path[-1]
-    parameters['shopid'] = product_path[-2]
-    return parameters
+
 
 
 def build_search_url(url, parameters):

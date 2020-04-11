@@ -60,11 +60,10 @@ def get_shopee_variants(item_json):
         variant_dict['item_id'] = item_dict['item_id']
         variant_dict['item_name'] = item_dict['item_name']
         variant_dict['shop_id'] = item_dict['shop_id']
-        variant_dict['last_updated_price'] = int(variant['price']) / SHOPEE_PRICE_DENOMINATION
-        # variant_dict['price_list'] = [variant_dict['last_updated_price']]
+        variant_dict['current_price'] = int(variant['price']) / SHOPEE_PRICE_DENOMINATION
         variant_dict['currency_code'] = variant['currency']
         variant_dict['stock'] = int(variant['stock'])
-        option = (f"{variant_dict['variant_name']} - ${variant_dict['last_updated_price']:.2f} ({variant_dict['stock']} left)")
+        option = (f"{variant_dict['variant_name']} - ${variant_dict['current_price']:.2f} ({variant_dict['stock']} left)")
         # variants.append(variant_dict)
         # variant_display.append(option)
     # if list is empty, display main product price
@@ -76,11 +75,10 @@ def get_shopee_variants(item_json):
         variant_dict['item_id'] = item_dict['item_id']
         variant_dict['item_name'] = item_dict['item_name']
         variant_dict['shop_id'] = item_dict['shop_id']
-        variant_dict['last_updated_price'] = int(item_json['item']['price']) / SHOPEE_PRICE_DENOMINATION
-        variant_dict['price_list'] = [variant_dict['last_updated_price']]
+        variant_dict['current_price'] = int(item_json['item']['price']) / SHOPEE_PRICE_DENOMINATION
         variant_dict['currency'] = item_dict['currency']
         variant_dict['stock'] = item_dict['item_stock']
-        option = (f"{variant_dict['variant_name']} - ${variant_dict['last_updated_price']:.2f} ({variant_dict['stock']} left)")
+        option = (f"{variant_dict['variant_name']} - ${variant_dict['current_price']:.2f} ({variant_dict['stock']} left)")
 
     variants.append(variant_dict)
     variants_display.append(option)

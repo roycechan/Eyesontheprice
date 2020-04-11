@@ -33,10 +33,13 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_FREQUENCY, CHOOSE_VARIANT, STORE_FREQUENCY, BIO = range(5)
+INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, BIO = range(5)
 SUPPORTED_CHANNELS = ['shopee']
 start_reply_keyboard = [['Compare Prices', 'Track Prices']]
-frequency_reply_keyboard = ['When price drops by more than 5%', 'When price drops by more than 10%', "Don't need to update me"]
+frequency_reply_keyboard = ['When price drops by more than 10%',
+                            'When price drops by more than 20%',
+                            'When price drops by more than 30%',
+                            "Don't need to update me"]
 
 
 def start(update, context):
@@ -93,13 +96,11 @@ def get_url_and_display_variant(update, context):
         return INITIAL_CHOICE
     else:
         search_url = url_list[0]
-        logger.info("Extracted URL: %s", search_url)
+        logger.info("Bot extracted URL: %s", search_url)
         # store URL in chat_data
         context.chat_data['search_url'] = search_url
-        # Extract domain
         context.chat_data['channel'] = utils.extract_domain(search_url)
-
-        logger.info(context.chat_data)
+        logger.info(f"CONTEXT: search_url: {search_url}, channel: {context.chat_data['channel']}")
 
         if context.chat_data['channel'] not in SUPPORTED_CHANNELS:
             update.message.reply_text('Oops! You did not key in a valid URL...',
@@ -113,89 +114,114 @@ def get_url_and_display_variant(update, context):
                 item_json = shopee_utils.get_shopee_json(search_url)
                 item_dict, variants, variants_display = shopee_utils.get_shopee_variants(item_json)
 
-                logger.info("Item name: %s", item_dict['item_name'])
-                logger.info("Variants: %s", variants_display)
+                logger.info(f"Bot found item: {item_dict['item_name']} with variants: {variants_display}")
 
                 update.message.reply_markdown(f'Hurray! We found \n\n`{item_dict["item_name"]}`\n\n'
                                           'Which variant would you like to track?',
                                           reply_markup=ReplyKeyboardMarkup.from_column(variants_display,
                                                                            one_time_keyboard=True))
 
+                logger.info(f"Bot prompted {user.first_name} for variant choice")
+
                 # Store item in context
                 context.chat_data['item'] = item_dict
                 context.chat_data['variants'] = variants
                 context.chat_data['variants_displayed'] = variants_display
-                logger.info(context.chat_data)
-                # print(context.chat_data['chat'])
+                logger.info(f"CONTEXT: item: {context.chat_data['item']['item_name']}, variants, variants_display")
                 # Store item details in DB
                 db_utils.add_item(item_dict)
+                logger.info(f"DB: Item {item_dict['item_id']} stored")
 
-                return CHOOSE_FREQUENCY
+                return CHOOSE_THRESHOLD
 
 
-def get_variant_and_display_frequency(update, context):
+def get_variant_and_display_threshold(update, context):
     user = update.message.from_user
-
     # Get index of chosen variant
     chosen_variant = update.message.text
-    context.chat_data['chosen_variant'] = chosen_variant
+
     variants_displayed = context.chat_data['variants_displayed']
     if chosen_variant in variants_displayed:
         chosen_variant_index = variants_displayed.index(chosen_variant)
-        context.chat_data['chosen_variant_index'] = chosen_variant_index
         logger.info("%s chose variant %s: %s", user.first_name, chosen_variant_index, chosen_variant)
 
-        #todo Store item variant
+        context.chat_data['chosen_variant'] = chosen_variant
+        context.chat_data['chosen_variant_index'] = chosen_variant_index
+        logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
+        # Store item variant
         db_utils.add_item_variant(context)
+        logger.info(f"DB: ItemVariant {chosen_variant_index} stored")
 
         # Display frequency
         update.message.reply_text(f'Would you like to receive updates when the price drops?',
                                   reply_markup=ReplyKeyboardMarkup.from_column(frequency_reply_keyboard,
                                                                                one_time_keyboard=True))
-    return STORE_FREQUENCY
+        logger.info(f"Bot prompted {user.first_name} for notification threshold")
+
+    return STORE_THRESHOLD
 
 
-def get_frequency(update, context):
-    chat_id = str(update.message.chat.id)
-    print(chat_id)
+def get_threshold(update, context):
     user = update.message.from_user
     chosen_threshold = update.message.text
-    context.chat_data['chosen_threshold'] = chosen_threshold
     if chosen_threshold in frequency_reply_keyboard:
-        chosen_threshold_index = frequency_reply_keyboard.index(chosen_threshold)
-        logger.info("%s chose thresholds %s: %s", user.first_name, chosen_threshold_index, chosen_threshold)
-        logger.info(user)
-        # todo Store user details
+        logger.info("%s chose threshold: %s", user.first_name, chosen_threshold)
+        parsed_threshold = parse_threshold(chosen_threshold)
+
+        # Store
+        context.chat_data['threshold'] = parsed_threshold
+        context.chat_data['user'] = user
+        logger.info(f"CONTEXT: threshold:{parsed_threshold}, user:{user}")
+
         # todo set callback details
         update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n\n"
                                       f"_Variant_: {context.chat_data['chosen_variant']}\n"
-                                      f"_Notifications_: {context.chat_data['chosen_threshold']}\n\n"
-                                      "This chart will update daily. Check back again tomorrow!")
+                                      f"_Notifications_: {chosen_threshold}\n\n"
+                                      "The chart below will update daily. Check back again tomorrow!")
         send_first_graph(update, context)
+        logger.info("Bot sent first chart")
     return ConversationHandler.END
 
 
 def send_first_graph(update, context):
+    # Extract details from context
+    index = context.chat_data['chosen_variant_index']
+    item_variant = context.chat_data["variants"][index]
+    current_price = item_variant['current_price']
+    variant_id = item_variant['variant_id']
     chat_id = str(update.message.chat.id)
 
-    # Get price
-    chosen_variant_index = context.chat_data['chosen_variant_index']
-    chosen_variant_price = context.chat_data['variants'][chosen_variant_index]['last_updated_price']
-    chosen_variant_id = context.chat_data['variants'][chosen_variant_index]['variant_id']
-    # Get photo
-    photo_url = plotly_test.create_image_test(variant_id=chosen_variant_id, chat_id=chat_id)
+    # Create image
+    photo_url = plotly_test.create_image_test(variant_id=variant_id, chat_id=chat_id)
     # update.message.reply_photo(photo=open("images/fig1.png", "rb"))
     photo = open(photo_url, "rb")
     updated_date = datetime.date(datetime.now())
-    msg = bot.send_photo(chat_id=update.message.chat.id,
+    message = bot.send_photo(chat_id=update.message.chat.id,
                    photo=photo,
                    parse_mode='Markdown',
-                   caption=f"_Last updated:_ ${chosen_variant_price:.2f} on {updated_date}")
-    msg_id = str(msg.message_id)
-    photo_url_new = f"{plotly_test.IMAGE_DESTINATION}{chosen_variant_id}_{chat_id}_{msg_id}.png"
+                   caption=f"_Last updated:_ ${current_price:.2f} on {updated_date}")
+    chart_message_id = str(message.message_id)
+    photo_url_new = f"{plotly_test.IMAGE_DESTINATION}{variant_id}_{chat_id}_{chart_message_id}.png"
     # Update photo url with message id
     photo.close()
     shutil.move(photo_url, photo_url_new)
+
+    # Store in context
+    context.chat_data['chart_message_id'] = chart_message_id
+    logger.info(f"CONTEXT: chart_message_id:{chart_message_id}")
+    # Store in db chat, chart, chart variant
+    db_utils.add_chat(context)
+    logger.info(f"DB: Chat stored. chat_id {chat_id}, chart_message {chart_message_id}, variant {variant_id}")
+
+
+def parse_threshold(string):
+    if string is not "Don't need to update me":
+        # extract number X from string with X%
+        threshold = string.split()[-1].split('%')[0]
+        return threshold
+    else:
+        return None
+
 
 def photo(update, context):
     user = update.message.from_user
@@ -217,8 +243,6 @@ def skip_photo(update, context):
                               'or send /skip.')
 
     return BIO
-
-
 
 
 def skip_location(update, context):
@@ -274,10 +298,10 @@ def main():
 
             CHOOSE_VARIANT: [MessageHandler(Filters.all, get_url_and_display_variant)],
 
-            CHOOSE_FREQUENCY: [MessageHandler(Filters.text, get_variant_and_display_frequency)
+            CHOOSE_THRESHOLD: [MessageHandler(Filters.text, get_variant_and_display_threshold)
                                ],
 
-            STORE_FREQUENCY: [MessageHandler(Filters.text, get_frequency)],
+            STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold)],
 
             BIO: [MessageHandler(Filters.text, bio)]
         },

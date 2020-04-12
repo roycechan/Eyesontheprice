@@ -3,13 +3,35 @@ import urllib
 from urllib.parse import urlparse
 import requests
 import re
+import logging
+import shopee_utils
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 SHOPEE_SEARCH_LINK = "https://shopee.sg/api/v2/item/get?"
 
-def extract_url(text):
+
+def extract_url(update, context):
+
+    user = context.chat_data['user']
+
+    if update.message.photo:
+        # Extract caption
+        text = update.message.caption
+        logger.info(f"{user.first_name} pasted photo with caption: {text}")
+    else:
+        text = update.message.text
+        logger.info(f"{user.first_name} pasted text: {text}")
+
     finder = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
     url_list = finder.findall(text)
-    return url_list
+
+    try:
+        return url_list[0]
+    except IndexError:
+        return None
 
 
 def extract_domain(url):
@@ -17,7 +39,12 @@ def extract_domain(url):
     return extracted.domain
 
 
-
+def get_item_information(channel, search_url):
+    if channel == "shopee":
+        item_json = shopee_utils.get_shopee_json(search_url)
+        item_dict, variants_dict, variants_display_dict = shopee_utils.get_shopee_variants(item_json)
+        logger.info(f"Bot found item: {item_dict['item_name']} with variants: {variants_display_dict}")
+        return item_dict, variants_dict, variants_display_dict
 
 
 def build_search_url(url, parameters):
@@ -33,3 +60,11 @@ def retrieve_item_details_json(url):
     r = requests.get(url, headers=headers).json()
     return r
 
+
+def parse_threshold(string):
+    if string is not "Don't need to update me":
+        # extract number X from string with X%
+        threshold = string.split()[-1].split('%')[0]
+        return threshold
+    else:
+        return 100

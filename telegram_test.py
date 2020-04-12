@@ -33,9 +33,13 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, BIO = range(5)
+INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD = range(4)
 SUPPORTED_CHANNELS = ['shopee']
-start_reply_keyboard = [['Compare Prices', 'Track Prices']]
+start_reply_keyboard = [['Start tracking prices']]
+returning_reply_keyboard = [['Track price of new product',
+                             'Add product to existing chart',
+                             'Remove product from existing chart',
+                             'Remove existing chart']]
 frequency_reply_keyboard = ['When price drops by more than 10%',
                             'When price drops by more than 20%',
                             'When price drops by more than 30%',
@@ -43,11 +47,13 @@ frequency_reply_keyboard = ['When price drops by more than 10%',
 
 
 def start(update, context):
+    # First time user flow
     update.message.reply_text(
         'Hi! My name is Pricey. I make it easy for you to compare and track prices across platforms '
         'Send /cancel to stop talking to me.\n\n'
         'What can I do for you today?',
         reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
+    # todo Returning user flow
 
     return INITIAL_CHOICE
 
@@ -62,12 +68,10 @@ def track(update, context):
 
 def prompt_url(update, context):
     # store char id and user data
-    user = update.message.from_user
-    context.chat_data['user'] = user
-    context.chat_data['chat_id'] = str(update.message.chat.id)
-    logger.info(f"Stored user: {context.chat_data['user']} and chat_id: {context.chat_data['chat_id']}")
+    context_store_chat_id(update, context)
+    context_store_user(update, context)
 
-    logger.info("%s chose: %s", user.first_name, update.message.text)
+    logger.info(f"{context.chat_data['user'].first_name} chose {update.message.text}")
     update.message.reply_text('All right! Please paste a Shopee product URL from either the app or online',
                               reply_markup=ReplyKeyboardRemove())
 
@@ -75,116 +79,90 @@ def prompt_url(update, context):
 
 
 def get_url_and_display_variant(update, context):
-    user = update.message.from_user
-    # check if it's a photo since photo and caption are shared from app
-    if update.message.photo:
-        # Extract caption
-        caption = update.message.caption
-        logger.info(f"{user.first_name} entered photo with caption: {caption}")
-        # Extract URL
-        url_list = utils.extract_url(caption)
+    user = context.chat_data['user']
 
-    else:
-        logger.info(f"{user.first_name} entered text: {update.message.text}")
-        # Extract URL
-        url_list = utils.extract_url(update.message.text)
-
-    if not url_list:
-        update.message.reply_text('Oops! You did not key in a valid URL...\n\n'
-                                  "Let's try again!",
-                                  reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
-        return INITIAL_CHOICE
-    else:
-        search_url = url_list[0]
+    search_url = utils.extract_url(update, context)
+    if search_url is not None:
         logger.info("Bot extracted URL: %s", search_url)
-        # store URL in chat_data
-        context.chat_data['search_url'] = search_url
-        context.chat_data['channel'] = utils.extract_domain(search_url)
-        logger.info(f"CONTEXT: search_url: {search_url}, channel: {context.chat_data['channel']}")
+        channel = utils.extract_domain(search_url)
+        if channel in SUPPORTED_CHANNELS:
+            update.message.reply_text(f"I support {channel}. Brb! I'm going to find out more about the product.")
+            item_dict, variants_dict, variants_display_dict = utils.get_item_information(channel, search_url)
+            update.message.reply_markdown(f'Hurray! We found \n\n`{item_dict["item_name"]}`\n\n'
+                                          'Which variant would you like to track?',
+                                          reply_markup=ReplyKeyboardMarkup.from_column(variants_display_dict,
+                                                                                       one_time_keyboard=True))
+            logger.info(f"Bot prompted {user.first_name} for variant choice")
 
-        if context.chat_data['channel'] not in SUPPORTED_CHANNELS:
-            update.message.reply_text('Oops! You did not key in a valid URL...',
-                                      "Let's try again!",
+            # Store in context
+            context.chat_data['channel'] = utils.extract_domain(search_url)
+            context.chat_data['item'] = item_dict
+            context.chat_data['variants'] = variants_dict
+            context.chat_data['variants_displayed'] = variants_display_dict
+            logger.info(f"CONTEXT: Stored channel, variants, display for item {item_dict['item_name']}")
+
+            return CHOOSE_THRESHOLD
+
+        else:
+            update.message.reply_text(f"Oops, I do not support {channel} yet. Let's try again.",
                                       reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
             return INITIAL_CHOICE
-        else:
-            update.message.reply_text('Brb! Fetching product variants...')
-
-            if context.chat_data['channel'] == "shopee":
-                item_json = shopee_utils.get_shopee_json(search_url)
-                item_dict, variants, variants_display = shopee_utils.get_shopee_variants(item_json)
-
-                logger.info(f"Bot found item: {item_dict['item_name']} with variants: {variants_display}")
-
-                update.message.reply_markdown(f'Hurray! We found \n\n`{item_dict["item_name"]}`\n\n'
-                                          'Which variant would you like to track?',
-                                          reply_markup=ReplyKeyboardMarkup.from_column(variants_display,
-                                                                           one_time_keyboard=True))
-
-                logger.info(f"Bot prompted {user.first_name} for variant choice")
-
-                # Store item in context
-                context.chat_data['item'] = item_dict
-                context.chat_data['variants'] = variants
-                context.chat_data['variants_displayed'] = variants_display
-                logger.info(f"CONTEXT: item: {context.chat_data['item']['item_name']}, variants, variants_display")
-                # Store item details in DB
-                db_utils.add_item(item_dict)
-                logger.info(f"DB: Item {item_dict['item_id']} stored")
-
-                return CHOOSE_THRESHOLD
+    else:
+        update.message.reply_text("Oops, you did not key in a valid URL. Let's try again.",
+                                  reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
+        return INITIAL_CHOICE
 
 
 def get_variant_and_display_threshold(update, context):
-    user = update.message.from_user
-    # Get index of chosen variant
+    user = context.chat_data['user']
     chosen_variant = update.message.text
-
     variants_displayed = context.chat_data['variants_displayed']
-    if chosen_variant in variants_displayed:
-        chosen_variant_index = variants_displayed.index(chosen_variant)
-        logger.info("%s chose variant %s: %s", user.first_name, chosen_variant_index, chosen_variant)
 
-        context.chat_data['chosen_variant'] = chosen_variant
-        context.chat_data['chosen_variant_index'] = chosen_variant_index
-        logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
-        # Store item variant
-        db_utils.add_item_variant(context)
-        logger.info(f"DB: ItemVariant {chosen_variant_index} stored")
+    chosen_variant_index = variants_displayed.index(chosen_variant)
+    logger.info(f"{user.first_name} chose {chosen_variant}")
 
-        # Display frequency
-        update.message.reply_text(f'Would you like to receive updates when the price drops?',
-                                  reply_markup=ReplyKeyboardMarkup.from_column(frequency_reply_keyboard,
-                                                                               one_time_keyboard=True))
-        logger.info(f"Bot prompted {user.first_name} for notification threshold")
+    update.message.reply_text(f'Would you like to receive updates when the price drops?',
+                              reply_markup=ReplyKeyboardMarkup.from_column(frequency_reply_keyboard,
+                                                                           one_time_keyboard=True))
+    logger.info(f"Bot prompted {user.first_name} for notification threshold")
+
+    # Store in context
+    context.chat_data['chosen_variant'] = chosen_variant
+    context.chat_data['chosen_variant_index'] = chosen_variant_index
+    logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
 
     return STORE_THRESHOLD
 
 
-def get_threshold(update, context):
-    user = update.message.from_user
+def get_threshold_and_send_graph(update, context):
+    user = context.chat_data['user']
     chosen_threshold = update.message.text
-    if chosen_threshold in frequency_reply_keyboard:
-        logger.info("%s chose threshold: %s", user.first_name, chosen_threshold)
-        parsed_threshold = parse_threshold(chosen_threshold)
 
-        # Store
-        context.chat_data['threshold'] = parsed_threshold
-        context.chat_data['user'] = user
-        logger.info(f"CONTEXT: threshold:{parsed_threshold}, user:{user}")
+    if chosen_threshold in frequency_reply_keyboard:
+        logger.info(f"{user.first_name} chose {chosen_threshold}")
+        parsed_threshold = utils.parse_threshold(chosen_threshold)
 
         # todo set callback details
         update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n\n"
                                       f"_Variant_: {context.chat_data['chosen_variant']}\n"
                                       f"_Notifications_: {chosen_threshold}\n\n"
                                       "The chart below will update daily. Check back again tomorrow!")
+        logger.info("Bot sent tracking summary")
+
         send_first_graph(update, context)
-        logger.info("Bot sent first chart")
+        logger.info("Bot sent first chart.")
+
+        # Store in context
+        context.chat_data['threshold'] = parsed_threshold
+        logger.info(f"CONTEXT: stored threshold:{parsed_threshold}")
+
+        # Store everything in DB
+        db_utils.store_in_db(context)
+
     return ConversationHandler.END
 
 
 def send_first_graph(update, context):
-    # Extract details from context
     index = context.chat_data['chosen_variant_index']
     item_variant = context.chat_data["variants"][index]
     current_price = item_variant['current_price']
@@ -209,57 +187,45 @@ def send_first_graph(update, context):
     # Store in context
     context.chat_data['chart_message_id'] = chart_message_id
     logger.info(f"CONTEXT: chart_message_id:{chart_message_id}")
-    # Store in db chat, chart, chart variant
-    db_utils.add_chat(context)
-    logger.info(f"DB: Chat stored. chat_id {chat_id}, chart_message {chart_message_id}, variant {variant_id}")
 
 
-def parse_threshold(string):
-    if string is not "Don't need to update me":
-        # extract number X from string with X%
-        threshold = string.split()[-1].split('%')[0]
-        return threshold
-    else:
-        return None
-
-
-def photo(update, context):
-    user = update.message.from_user
-    photo_file = update.message.photo[-1].get_file()
-    print(photo_file)
-    print(update.message.photo)
-    photo_file.download('user_photo.jpg')
-    logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
-    update.message.reply_text('Gorgeous! Now, send me your location please, '
-                              'or send /skip if you don\'t want to.')
-
-    return BIO
-
-
-def skip_photo(update, context):
-    user = update.message.from_user
-    logger.info("User %s did not send a photo.", user.first_name)
-    update.message.reply_text('I bet you look great! Now, send me your location please, '
-                              'or send /skip.')
-
-    return BIO
-
-
-def skip_location(update, context):
-    user = update.message.from_user
-    logger.info("User %s did not send a location.", user.first_name)
-    update.message.reply_text('You seem a bit paranoid! '
-                              'At last, tell me something about yourself.')
-
-    return BIO
-
-
-def bio(update, context):
-    user = update.message.from_user
-    logger.info("Bio of %s: %s", user.first_name, update.message.text)
-    update.message.reply_text('Thank you! I hope we can talk again some day.')
-
-    return ConversationHandler.END
+# def photo(update, context):
+#     user = update.message.from_user
+#     photo_file = update.message.photo[-1].get_file()
+#     print(photo_file)
+#     print(update.message.photo)
+#     photo_file.download('user_photo.jpg')
+#     logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
+#     update.message.reply_text('Gorgeous! Now, send me your location please, '
+#                               'or send /skip if you don\'t want to.')
+#
+#     return BIO
+#
+#
+# def skip_photo(update, context):
+#     user = update.message.from_user
+#     logger.info("User %s did not send a photo.", user.first_name)
+#     update.message.reply_text('I bet you look great! Now, send me your location please, '
+#                               'or send /skip.')
+#
+#     return BIO
+#
+#
+# def skip_location(update, context):
+#     user = update.message.from_user
+#     logger.info("User %s did not send a location.", user.first_name)
+#     update.message.reply_text('You seem a bit paranoid! '
+#                               'At last, tell me something about yourself.')
+#
+#     return BIO
+#
+#
+# def bio(update, context):
+#     user = update.message.from_user
+#     logger.info("Bio of %s: %s", user.first_name, update.message.text)
+#     update.message.reply_text('Thank you! I hope we can talk again some day.')
+#
+#     return ConversationHandler.END
 
 
 def cancel(update, context):
@@ -274,6 +240,17 @@ def cancel(update, context):
 def error(update, context):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, context.error)
+
+
+# CONTEXT UTILS
+def context_store_chat_id(update, context):
+    context.chat_data['chat_id'] = str(update.message.chat.id)
+    logger.info(f"CONTEXT: Stored chat_id: {context.chat_data['chat_id']}")
+
+
+def context_store_user(update, context):
+    context.chat_data['user'] = update.message.from_user
+    logger.info(f"CONTEXT: Stored user: {context.chat_data['user']}")
 
 
 def main():
@@ -301,9 +278,9 @@ def main():
             CHOOSE_THRESHOLD: [MessageHandler(Filters.text, get_variant_and_display_threshold)
                                ],
 
-            STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold)],
+            STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold_and_send_graph)],
 
-            BIO: [MessageHandler(Filters.text, bio)]
+            # BIO: [MessageHandler(Filters.text, bio)]
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]

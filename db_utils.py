@@ -86,7 +86,7 @@ def add_new_chart_message(context):
         'variants': [chat_item_variant]
     }
     chart_message = db_models.ChartMessage(**chart_message_dict)
-    logger.info("Created chart message")
+    logger.info("add_new_chart_message: Created chart message")
     return chart_message
 
 
@@ -95,6 +95,8 @@ def add_chat_item_variant(context):
     item_variant_dict = context.chat_data["variants"][index]
     variant_id = item_variant_dict['variant_id']
     variant_name = item_variant_dict['variant_name']
+    item_name = item_variant_dict['item_name']
+    channel = context.chat_data['channel']
 
     chat_item_variant_created_time = datetime.now()
     last_updated_time = datetime.now()
@@ -103,20 +105,34 @@ def add_chat_item_variant(context):
     chat_item_variant_dict = {
         'variant_id': variant_id,
         'variant_name': variant_name,
+        'item_name': item_name,
+        'channel': channel,
         'chat_item_variant_created_time': chat_item_variant_created_time,
         'last_updated_time': last_updated_time
     }
     chat_item_variant = db_models.ChatItemVariant(**chat_item_variant_dict)
-    logger.info("Created chat item variant")
+    logger.info("add_chat_item_variant: Created chat item variant")
     return chat_item_variant
 
 
 def add_price(context):
     index = context.chat_data['chosen_variant_index']
     price_dict = {
-        'current_price': context.chat_data["variants"][index]['current_price'],
+        'price': context.chat_data["variants"][index]['current_price'],
         'date': datetime.now()
     }
     price = db_models.Price(**price_dict)
-    logger.info("Created price")
+    logger.info("add_price: Created price")
     return price
+
+
+def store_in_db(context):
+    # Store in db chat, chart, chart variant
+    logger.info(f"DB: Starting DB operations...")
+    add_item(context.chat_data['item'])
+    logger.info(f"DB: Item {context.chat_data['item']['item_id']} stored")
+    add_item_variant(context)
+    logger.info(f"DB: ItemVariant stored")
+    add_chat(context)
+    logger.info(f"DB: Chat stored. chat_id, chart_message, variant")
+    logger.info(f"DB: Completed DB operation.")

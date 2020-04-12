@@ -36,6 +36,8 @@ class ItemVariant(mongoengine.DynamicDocument):
 # 1 Chat: M ChartMessages; 1 ChartMessage: M ChatItemVariants
 class ChatItemVariant(mongoengine.EmbeddedDocument):
     variant_id = mongoengine.StringField(required=True, primary_key=True)
+    channel = mongoengine.StringField()
+    item_name = mongoengine.StringField()
     variant_name = mongoengine.StringField()
     chat_item_variant_created_time = mongoengine.DateTimeField()
     last_updated_time = mongoengine.DateTimeField()

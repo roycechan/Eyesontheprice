@@ -33,17 +33,24 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD = range(4)
+INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE = range(5)
+
 SUPPORTED_CHANNELS = ['shopee']
+
 start_reply_keyboard = [['Start tracking prices']]
+
 returning_reply_keyboard = [['Track price of new product',
                              'Add product to existing chart',
                              'Remove product from existing chart',
                              'Remove existing chart']]
-frequency_reply_keyboard = ['When price drops by more than 10%',
+
+threshold_reply_keyboard = ['When price drops by more than 10%',
                             'When price drops by more than 20%',
                             'When price drops by more than 30%',
                             "Don't need to update me"]
+
+add_product_existing_reply_keyboard = ['Add a similar product',
+                                       'No other products to add']
 
 
 def start(update, context):
@@ -72,7 +79,7 @@ def prompt_url(update, context):
     context_store_user(update, context)
 
     logger.info(f"{context.chat_data['user'].first_name} chose {update.message.text}")
-    update.message.reply_text('All right! Please paste a Shopee product URL from either the app or online',
+    update.message.reply_text('All right! Please paste a Shopee product URL here.',
                               reply_markup=ReplyKeyboardRemove())
 
     return CHOOSE_VARIANT
@@ -95,8 +102,8 @@ def get_url_and_display_variant(update, context):
             logger.info(f"Bot prompted {user.first_name} for variant choice")
 
             # Store in context
+            context_store_item(item_dict, context)
             context.chat_data['channel'] = utils.extract_domain(search_url)
-            context.chat_data['item'] = item_dict
             context.chat_data['variants'] = variants_dict
             context.chat_data['variants_displayed'] = variants_display_dict
             logger.info(f"CONTEXT: Stored channel, variants, display for item {item_dict['item_name']}")
@@ -113,7 +120,7 @@ def get_url_and_display_variant(update, context):
         return INITIAL_CHOICE
 
 
-def get_variant_and_display_threshold(update, context):
+def get_variants(update, context):
     user = context.chat_data['user']
     chosen_variant = update.message.text
     variants_displayed = context.chat_data['variants_displayed']
@@ -121,16 +128,25 @@ def get_variant_and_display_threshold(update, context):
     chosen_variant_index = variants_displayed.index(chosen_variant)
     logger.info(f"{user.first_name} chose {chosen_variant}")
 
-    update.message.reply_text(f'Would you like to receive updates when the price drops?',
-                              reply_markup=ReplyKeyboardMarkup.from_column(frequency_reply_keyboard,
-                                                                           one_time_keyboard=True))
-    logger.info(f"Bot prompted {user.first_name} for notification threshold")
-
     # Store in context
     context.chat_data['chosen_variant'] = chosen_variant
     context.chat_data['chosen_variant_index'] = chosen_variant_index
     logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
 
+    update.message.reply_text(f'Would you like to add another similar product to track in this chart?',
+                              reply_markup=ReplyKeyboardMarkup.from_column(add_product_existing_reply_keyboard,
+                                                                           one_time_keyboard=True))
+    return ADD_PRODUCT_CHOICE
+
+
+def display_threshold(update, context):
+    user = context.chat_data['user']
+
+    update.message.reply_text(f'Would you like to receive updates when the price drops?',
+                              reply_markup=ReplyKeyboardMarkup.from_column(threshold_reply_keyboard,
+                                                                           one_time_keyboard=True))
+
+    logger.info(f"Bot prompted {user.first_name} for notification threshold")
     return STORE_THRESHOLD
 
 
@@ -138,26 +154,29 @@ def get_threshold_and_send_graph(update, context):
     user = context.chat_data['user']
     chosen_threshold = update.message.text
 
-    if chosen_threshold in frequency_reply_keyboard:
-        logger.info(f"{user.first_name} chose {chosen_threshold}")
-        parsed_threshold = utils.parse_threshold(chosen_threshold)
 
-        # todo set callback details
-        update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n\n"
-                                      f"_Variant_: {context.chat_data['chosen_variant']}\n"
-                                      f"_Notifications_: {chosen_threshold}\n\n"
-                                      "The chart below will update daily. Check back again tomorrow!")
-        logger.info("Bot sent tracking summary")
+    logger.info(f"{user.first_name} chose {chosen_threshold}")
+    parsed_threshold = utils.parse_threshold(chosen_threshold)
 
-        send_first_graph(update, context)
-        logger.info("Bot sent first chart.")
+    # todo set callback details
+    # >> does not work
+    update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n\n"
+                                  f"_Variant_: {context.chat_data['chosen_variant']}\n"
+                                  f"_Notifications_: {chosen_threshold}\n\n"
+                                  "The chart below will update daily. Check back again tomorrow!")
+    logger.info("Bot sent tracking summary")
 
-        # Store in context
-        context.chat_data['threshold'] = parsed_threshold
-        logger.info(f"CONTEXT: stored threshold:{parsed_threshold}")
+    # todo send tracking summary message
+    # send_tracking_summary(update,context)
+    send_first_graph(update, context)
+    logger.info("Bot sent first chart.")
 
-        # Store everything in DB
-        db_utils.store_in_db(context)
+    # Store in context
+    context.chat_data['threshold'] = parsed_threshold
+    logger.info(f"CONTEXT: stored threshold:{parsed_threshold}")
+
+    # Store everything in DB
+    # db_utils.store_in_db(context)
 
     return ConversationHandler.END
 
@@ -253,6 +272,15 @@ def context_store_user(update, context):
     logger.info(f"CONTEXT: Stored user: {context.chat_data['user']}")
 
 
+def context_store_item(item_dict, context):
+    if 'items' in context.chat_data.keys():
+        context.chat_data['items'].append(item_dict.copy())
+    else:
+        context.chat_data['items'] = [item_dict]
+    item_names = [i['item_name'] for i in context.chat_data['items']]
+    logger.info(f"CONTEXT: Stored items: {item_names}")
+
+
 def main():
     # Create the Updater and pass it your bot's token.
     # Make sure to set use_context=True to use the new context based callbacks
@@ -265,22 +293,26 @@ def main():
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start),
-                      CommandHandler('compare', prompt_url),
                       CommandHandler('track', prompt_url)
                       ],
 
         states={
-            INITIAL_CHOICE: [MessageHandler(Filters.regex('^(Compare Prices|Track Prices)$'), prompt_url),
+            # INITIAL_CHOICE: [MessageHandler(Filters.regex('^(Compare Prices|Track Prices)$'), prompt_url),
+                             # ],
+
+            INITIAL_CHOICE: [MessageHandler(Filters.text, prompt_url),
                              ],
 
             CHOOSE_VARIANT: [MessageHandler(Filters.all, get_url_and_display_variant)],
 
-            CHOOSE_THRESHOLD: [MessageHandler(Filters.text, get_variant_and_display_threshold)
+            CHOOSE_THRESHOLD: [MessageHandler(Filters.text, get_variants)
                                ],
 
             STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold_and_send_graph)],
 
-            # BIO: [MessageHandler(Filters.text, bio)]
+            ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex('^Add a similar product$'), prompt_url),
+                                 MessageHandler(Filters.regex('^No other products to add$'), display_threshold)],
+
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]

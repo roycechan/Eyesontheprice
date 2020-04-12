@@ -56,7 +56,7 @@ def get_shopee_variants(item_json):
         variant_dict = {
             'channel': item_dict['channel'],
             'variant_id': str(variant['itemid']),
-            'variant_name': variant['name'].title(),
+            'variant_name': variant['name'].title()[:100],
             'item_id': item_dict['item_id'],
             'item_name': item_dict['item_name'],
             'shop_id': item_dict['shop_id'],
@@ -65,21 +65,21 @@ def get_shopee_variants(item_json):
             'stock': int(variant['stock'])
         }
         option = (f"{variant_dict['variant_name']} - ${variant_dict['current_price']:.2f} ({variant_dict['stock']} left)")
-        print(option)
         variants.append(variant_dict)
         variants_display.append(option)
     # if list is empty, display main product price
     if not variants:
-        variant_dict = {}
-        variant_dict['channel'] = item_dict['channel']
-        variant_dict['variant_id'] = str(item_dict['item_id'])
-        variant_dict['variant_name'] = item_dict['item_name']
-        variant_dict['item_id'] = item_dict['item_id']
-        variant_dict['item_name'] = item_dict['item_name']
-        variant_dict['shop_id'] = item_dict['shop_id']
-        variant_dict['current_price'] = int(item_json['item']['price']) / SHOPEE_PRICE_DENOMINATION
-        variant_dict['currency'] = item_dict['currency']
-        variant_dict['stock'] = item_dict['item_stock']
+        variant_dict = {
+            'channel': item_dict['channel'],
+            'variant_id': str(item_dict['item_id']),
+            'variant_name': item_dict['item_name'].title()[:100],
+            'item_id': str(item_dict['item_id']),
+            'item_name': item_dict['item_name'],
+            'shop_id': item_dict['shop_id'],
+            'current_price': int(item_json['item']['price']) / SHOPEE_PRICE_DENOMINATION,
+            'currency_code': item_dict['currency'],
+            'stock': int(item_dict['item_stock'])
+        }
         option = (f"{variant_dict['variant_name']} - ${variant_dict['current_price']:.2f} ({variant_dict['stock']} left)")
 
         variants.append(variant_dict)

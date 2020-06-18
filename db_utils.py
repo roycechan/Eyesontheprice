@@ -35,7 +35,7 @@ def add_item_variant(context):
             # create new lists
             item_variant_dict['chat_ids'] = [chat_id]
             item_variant_dict['price_history'] = [add_price(context)]
-            item_variant_dict['price_history_full'] = [item_variant_dict['current_price']]
+            item_variant_dict['created_price'] = item_variant_dict['current_price']
             # add creation time
             item_variant_dict['created_time'] = datetime.now()
 
@@ -64,55 +64,77 @@ def add_item_variant(context):
 def add_chat(context):
     chat_id = str(context.chat_data['chat_id'])
     user = context.chat_data['user']
-    chart_message = add_new_chart_message(context)
+    chat_chart = add_chart(context)
     db_models.Chat.objects(chat_id=chat_id).upsert_one(set__chat_id=chat_id,
                                                        set__chat_created_time=datetime.now(),
                                                        set__user_id=str(user['id']),
                                                        set__user_first_name=user['first_name'],
                                                        set__username=user['username'],
-                                                       push__chart_messages=chart_message
+                                                       push__chart_messages=chat_chart
                                                        )
 
 
-def add_new_chart_message(context):
+def add_chart(context):
     # Find message_id
-    chart_message_id = context.chat_data["chart_message_id"]
-    # Create chat item variant
-    chat_item_variant = add_chat_item_variant(context)
+    chart_id = context.chat_data["chart_message_id"]
+    chat_id = str(context.chat_data['chat_id'])
+    # Find variant ids
+    index = context.chat_data['chosen_variant_index']
+    item_variant_dict = context.chat_data["variants"][index]
+    variant_id = item_variant_dict['variant_id']
+
     # Store fields in dict
-    chart_message_dict = {
-        'chart_message_id': chart_message_id,
+    chat_chart_dict = {
+        'chat_id': chat_id,
+        'chart_id': chart_id,
         'threshold': context.chat_data['threshold'],
-        'variants': [chat_item_variant]
+        'variants': [variant_id]
     }
-    chart_message = db_models.ChartMessage(**chart_message_dict)
-    logger.info("add_new_chart_message: Created chart message")
-    return chart_message
+    chat_chart = db_models.ChatChartMessage(**chat_chart_dict)
+
+    chart_variant = add_chart_variant(context)
+    # Store fields in dict
+    chart_dict = {
+        'chat_id': chat_id,
+        'chart_id': chart_id,
+        'threshold': context.chat_data['threshold'],
+        'variants': [chart_variant]
+    }
+
+    chart = db_models.Chart(**chart_dict)
+    chart.save()
+    logger.info("DB: Chart stored")
+
+    return chat_chart
 
 
-def add_chat_item_variant(context):
+def add_chart_variant(context):
     index = context.chat_data['chosen_variant_index']
     item_variant_dict = context.chat_data["variants"][index]
     variant_id = item_variant_dict['variant_id']
     variant_name = item_variant_dict['variant_name']
     item_name = item_variant_dict['item_name']
     channel = context.chat_data['channel']
+    current_price = item_variant_dict['current_price']
+    created_price = item_variant_dict['current_price']
 
-    chat_item_variant_created_time = datetime.now()
+    created_time = datetime.now()
     last_updated_time = datetime.now()
 
     # add into dict
-    chat_item_variant_dict = {
+    chart_variant_dict = {
         'variant_id': variant_id,
         'variant_name': variant_name,
         'item_name': item_name,
         'channel': channel,
-        'chat_item_variant_created_time': chat_item_variant_created_time,
-        'last_updated_time': last_updated_time
+        'created_time': created_time,
+        'last_updated_time': last_updated_time,
+        'current_price': current_price,
+        'created_price': created_price
     }
-    chat_item_variant = db_models.ChatItemVariant(**chat_item_variant_dict)
-    logger.info("add_chat_item_variant: Created chat item variant")
-    return chat_item_variant
+    chart_variant = db_models.ChartVariant(**chart_variant_dict)
+    logger.info("add_chart_variant: Created chart variant")
+    return chart_variant
 
 
 def add_price(context):
@@ -134,5 +156,5 @@ def store_in_db(context):
     add_item_variant(context)
     logger.info(f"DB: ItemVariant stored")
     add_chat(context)
-    logger.info(f"DB: Chat stored. chat_id, chart_message, variant")
+    logger.info(f"DB: Chat stored")
     logger.info(f"DB: Completed DB operation.")

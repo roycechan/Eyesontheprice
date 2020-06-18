@@ -99,13 +99,14 @@ def get_url_and_display_variant(update, context):
                                           'Which variant would you like to track?',
                                           reply_markup=ReplyKeyboardMarkup.from_column(variants_display_dict,
                                                                                        one_time_keyboard=True))
-            logger.info(f"Bot prompted {user.first_name} for variant choice")
+            logger.info(f"BOT: prompted {user.first_name} for variant choice")
 
             # Store in context
             context_store_item(item_dict, context)
             context.chat_data['channel'] = utils.extract_domain(search_url)
             context.chat_data['variants'] = variants_dict
             context.chat_data['variants_displayed'] = variants_display_dict
+            context.chat_data['item'] = item_dict
             logger.info(f"CONTEXT: Stored channel, variants, display for item {item_dict['item_name']}")
 
             return CHOOSE_THRESHOLD
@@ -146,7 +147,7 @@ def display_threshold(update, context):
                               reply_markup=ReplyKeyboardMarkup.from_column(threshold_reply_keyboard,
                                                                            one_time_keyboard=True))
 
-    logger.info(f"Bot prompted {user.first_name} for notification threshold")
+    logger.info(f"BOT: prompted {user.first_name} for notification threshold")
     return STORE_THRESHOLD
 
 
@@ -159,24 +160,24 @@ def get_threshold_and_send_graph(update, context):
     parsed_threshold = utils.parse_threshold(chosen_threshold)
 
     # todo set callback details
-    # >> does not work
-    update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n\n"
-                                  f"_Variant_: {context.chat_data['chosen_variant']}\n"
+    # todo: add reply for other variants
+    update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n"
+                                  f"`Variant: {context.chat_data['chosen_variant']}`\n\n"
                                   f"_Notifications_: {chosen_threshold}\n\n"
                                   "The chart below will update daily. Check back again tomorrow!")
-    logger.info("Bot sent tracking summary")
+    logger.info("BOT: sent tracking summary")
 
     # todo send tracking summary message
     # send_tracking_summary(update,context)
     send_first_graph(update, context)
-    logger.info("Bot sent first chart.")
+    logger.info("BOT: sent first chart.")
 
     # Store in context
     context.chat_data['threshold'] = parsed_threshold
     logger.info(f"CONTEXT: stored threshold:{parsed_threshold}")
 
     # Store everything in DB
-    # db_utils.store_in_db(context)
+    db_utils.store_in_db(context)
 
     return ConversationHandler.END
 

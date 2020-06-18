@@ -45,7 +45,7 @@ def get_shopee_variants(item_json):
     item_dict['item_stock'] = int(item_json['item']['stock'])
     item_dict['categories'] = [i['display_name'] for i in item_json['item']['categories']]
     if item_json['item']['models']:
-        item_dict['variant_ids'] = [str(i['itemid']) for i in item_json['item']['models']]
+        item_dict['variant_ids'] = [str(i['modelid']) for i in item_json['item']['models']]
     else:
         item_dict['variant_ids'] = [str(item_dict['item_id'])]
 
@@ -55,7 +55,7 @@ def get_shopee_variants(item_json):
     for variant in item_json['item']['models']:
         variant_dict = {
             'channel': item_dict['channel'],
-            'variant_id': str(variant['itemid']),
+            'variant_id': str(variant['modelid']),
             'variant_name': variant['name'].title()[:100],
             'item_id': item_dict['item_id'],
             'item_name': item_dict['item_name'],

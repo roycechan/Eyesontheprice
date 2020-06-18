@@ -16,9 +16,12 @@ class ItemVariant(mongoengine.DynamicDocument):
     channel = mongoengine.StringField()
     created_time = mongoengine.DateTimeField()
     last_updated_time = mongoengine.DateTimeField()
+    created_price = mongoengine.DecimalField()
     current_price = mongoengine.DecimalField()
     price_history = mongoengine.EmbeddedDocumentListField(Price)
-    price_history_full = mongoengine.ListField(mongoengine.DecimalField())
+    # price_history_full = mongoengine.ListField(mongoengine.DecimalField())
+    date_list = mongoengine.ListField(mongoengine.StringField())
+    price_list = mongoengine.ListField(mongoengine.DecimalField())
     currency = mongoengine.StringField()
     shop_id = mongoengine.StringField()
     stock = mongoengine.IntField()
@@ -34,17 +37,19 @@ class ItemVariant(mongoengine.DynamicDocument):
 
 
 # 1 Chat: M ChartMessages; 1 ChartMessage: M ChatItemVariants
-class ChatItemVariant(mongoengine.EmbeddedDocument):
+class ChartVariant(mongoengine.EmbeddedDocument):
     variant_id = mongoengine.StringField(required=True, primary_key=True)
     channel = mongoengine.StringField()
     item_name = mongoengine.StringField()
     variant_name = mongoengine.StringField()
-    chat_item_variant_created_time = mongoengine.DateTimeField()
     last_updated_time = mongoengine.DateTimeField()
     # to be replicated from ItemVariant periodically
     created_time = mongoengine.DateTimeField()
+    created_price = mongoengine.DecimalField()
     current_price = mongoengine.DecimalField()
-    price_history_full = mongoengine.ListField(mongoengine.DecimalField())
+    price_history = mongoengine.EmbeddedDocumentListField(Price)
+    # date_list = mongoengine.ListField(mongoengine.StringField())
+    # price_list = mongoengine.ListField(mongoengine.DecimalField())
     currency = mongoengine.StringField()
     stock = mongoengine.IntField()
     price_change = mongoengine.DecimalField()
@@ -57,17 +62,38 @@ class ChatItemVariant(mongoengine.EmbeddedDocument):
     }
 
 
-# charts
-class ChartMessage(mongoengine.EmbeddedDocument):
+class Chart(mongoengine.DynamicDocument):
     # chart id = message id
-    chart_message_id = mongoengine.StringField(required=True, primary_key=True)
-    variants = mongoengine.EmbeddedDocumentListField(ChatItemVariant)
+    chart_id = mongoengine.StringField(required=True)
+    chat_id = mongoengine.StringField(required=True)
+    variants = mongoengine.EmbeddedDocumentListField(ChartVariant)
     threshold = mongoengine.IntField()
     price_changes = mongoengine.ListField(mongoengine.DecimalField())
     price_changes_percent = mongoengine.ListField(mongoengine.FloatField())
     meta = {
-        'collection': 'charts'
+        'collection': 'charts',
+        'indexes': [
+            {
+                'fields': ['chat_id', 'chart_id'],
+                'unique': True
+            }
+        ]
     }
+
+
+# charts
+class ChatChartMessage(mongoengine.EmbeddedDocument):
+    # chart id = message id
+    chart_id = mongoengine.StringField(required=True, primary_key=True)
+    chat_id = mongoengine.StringField(required=True)
+    # variants = mongoengine.EmbeddedDocumentListField(ChatItemVariant)
+    variants = mongoengine.ListField(mongoengine.StringField())
+    threshold = mongoengine.IntField()
+    # price_changes = mongoengine.ListField(mongoengine.DecimalField())
+    # price_changes_percent = mongoengine.ListField(mongoengine.FloatField())
+    # meta = {
+    #     'collection': 'charts'
+    # }
 
 
 class Chat(mongoengine.DynamicDocument):
@@ -77,7 +103,7 @@ class Chat(mongoengine.DynamicDocument):
     user_id = mongoengine.StringField()
     user_first_name = mongoengine.StringField()
     user_username = mongoengine.StringField()
-    chart_messages = mongoengine.EmbeddedDocumentListField(ChartMessage)
+    chart_messages = mongoengine.EmbeddedDocumentListField(ChatChartMessage)
     meta = {
         'collection': 'chats'
     }

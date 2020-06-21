@@ -26,6 +26,7 @@ class ItemVariant(mongoengine.DynamicDocument):
     shop_id = mongoengine.StringField()
     stock = mongoengine.IntField()
     chat_ids = mongoengine.ListField(mongoengine.StringField())
+    chart_ids = mongoengine.ListField(mongoengine.StringField())
     price_change = mongoengine.DecimalField()
     price_change_percent = mongoengine.FloatField()
     meta = {
@@ -47,13 +48,13 @@ class ChartVariant(mongoengine.EmbeddedDocument):
     created_time = mongoengine.DateTimeField()
     created_price = mongoengine.DecimalField()
     current_price = mongoengine.DecimalField()
-    price_history = mongoengine.EmbeddedDocumentListField(Price)
+    # price_history = mongoengine.EmbeddedDocumentListField(Price)
     # date_list = mongoengine.ListField(mongoengine.StringField())
     # price_list = mongoengine.ListField(mongoengine.DecimalField())
     currency = mongoengine.StringField()
     stock = mongoengine.IntField()
-    price_change = mongoengine.DecimalField()
-    price_change_percent = mongoengine.FloatField()
+    # price_change = mongoengine.DecimalField()
+    # price_change_percent = mongoengine.FloatField()
     meta = {
         'collection': 'variants',
         'indexes': [
@@ -67,9 +68,10 @@ class Chart(mongoengine.DynamicDocument):
     chart_id = mongoengine.StringField(required=True)
     chat_id = mongoengine.StringField(required=True)
     variants = mongoengine.EmbeddedDocumentListField(ChartVariant)
+    variant_names = mongoengine.ListField(mongoengine.StringField())
     threshold = mongoengine.IntField()
-    price_changes = mongoengine.ListField(mongoengine.DecimalField())
-    price_changes_percent = mongoengine.ListField(mongoengine.FloatField())
+    price_change_percent_list = mongoengine.ListField(mongoengine.DecimalField())
+    threshold_hit_list = mongoengine.ListField(mongoengine.DecimalField())
     meta = {
         'collection': 'charts',
         'indexes': [
@@ -89,8 +91,8 @@ class ChatChartMessage(mongoengine.EmbeddedDocument):
     # variants = mongoengine.EmbeddedDocumentListField(ChatItemVariant)
     variants = mongoengine.ListField(mongoengine.StringField())
     threshold = mongoengine.IntField()
-    # price_changes = mongoengine.ListField(mongoengine.DecimalField())
-    # price_changes_percent = mongoengine.ListField(mongoengine.FloatField())
+    price_changes = mongoengine.ListField(mongoengine.DecimalField())
+    price_changes_percent = mongoengine.ListField(mongoengine.FloatField())
     # meta = {
     #     'collection': 'charts'
     # }

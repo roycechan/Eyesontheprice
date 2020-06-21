@@ -106,7 +106,7 @@ def get_url_and_display_variant(update, context):
             context.chat_data['channel'] = utils.extract_domain(search_url)
             context.chat_data['variants'] = variants_dict
             context.chat_data['variants_displayed'] = variants_display_dict
-            context.chat_data['item'] = item_dict
+            # context.chat_data['item'] = item_dict
             logger.info(f"CONTEXT: Stored channel, variants, display for item {item_dict['item_name']}")
 
             return CHOOSE_THRESHOLD
@@ -130,6 +130,7 @@ def get_variants(update, context):
     logger.info(f"{user.first_name} chose {chosen_variant}")
 
     # Store in context
+    context_store_item_variant(context.chat_data['variants'][chosen_variant_index], context)
     context.chat_data['chosen_variant'] = chosen_variant
     context.chat_data['chosen_variant_index'] = chosen_variant_index
     logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
@@ -154,17 +155,36 @@ def display_threshold(update, context):
 def get_threshold_and_send_graph(update, context):
     user = context.chat_data['user']
     chosen_threshold = update.message.text
-
-
     logger.info(f"{user.first_name} chose {chosen_threshold}")
     parsed_threshold = utils.parse_threshold(chosen_threshold)
 
     # todo set callback details
     # todo: add reply for other variants
-    update.message.reply_markdown(f"Super! You've chosen to track: \n\n`{context.chat_data['item']['item_name']}`\n"
-                                  f"`Variant: {context.chat_data['chosen_variant']}`\n\n"
-                                  f"_Notifications_: {chosen_threshold}\n\n"
-                                  "The chart below will update daily. Check back again tomorrow!")
+
+    message = "Great! You've chosen to track the following: \n\n"
+    number = 1
+    for i in context.chat_data['chosen_variants']:
+        message += f"{number}. {i['item_name']} - {i['variant_name']} \n\n"
+        number += 1
+    message += f"Notification: {chosen_threshold}\n\n"
+    message += f"We'll update the chart daily. Check back again tomorrow :)"
+
+    # messages = ["Great! You've chosen to track the following: \n\n"]
+    # for i in context.chat_data['chosen_variants']:
+    #     messages.append(f"{i+1}. {i['item_name']} - {i['variant_name']} \n\n")
+    # # message += f"Notification: {chosen_threshold}\n\n"
+    # # message += f"We'll update the chart daily. Check back again tomorrow :)"
+    # message = ''.join(messages)
+
+
+    update.message.reply_markdown(message)
+    # update.message.reply_markdown(f"Great! You've chosen to track the following: \n\n"
+    #                               f"{[i['item_name'] for i in context.chat_data['chosen_variants']]}\n\n"
+    #
+    #                               # f"`{context.chat_data['item']['item_name']}`\n"
+    #                               # f"`Variant: {context.chat_data['chosen_variant']}`\n\n"
+    #                               f"_Notifications_: {chosen_threshold}\n\n"
+    #                               "We'll update the chart daily. Check back again tomorrow :)")
     logger.info("BOT: sent tracking summary")
 
     # todo send tracking summary message
@@ -279,7 +299,18 @@ def context_store_item(item_dict, context):
     else:
         context.chat_data['items'] = [item_dict]
     item_names = [i['item_name'] for i in context.chat_data['items']]
+    # logger.info(context.chat_data)
     logger.info(f"CONTEXT: Stored items: {item_names}")
+
+
+def context_store_item_variant(item_variant_dict, context):
+    if 'chosen_variants' in context.chat_data.keys():
+        context.chat_data['chosen_variants'].append(item_variant_dict.copy())
+    else:
+        context.chat_data['chosen_variants'] = [item_variant_dict]
+    # item_names = [i['variant_name'] for i in context.chat_data['items']]
+    logger.info(context.chat_data)
+    logger.info(f"CONTEXT: Stored variants")
 
 
 def main():

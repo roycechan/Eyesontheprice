@@ -12,7 +12,7 @@ Send /start to initiate the conversation.
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
-import plotly_test
+import plotly_utils
 import utils, db_utils, shopee_utils
 import logging
 from credentials import TELEGRAM_TOKEN
@@ -105,6 +105,7 @@ def get_url_and_display_variant(update, context):
             context_store_item(item_dict, context)
             context.chat_data['channel'] = utils.extract_domain(search_url)
             context.chat_data['variants'] = variants_dict
+            logger.info(context.chat_data['variants'])
             context.chat_data['variants_displayed'] = variants_display_dict
             # context.chat_data['item'] = item_dict
             logger.info(f"CONTEXT: Stored channel, variants, display for item {item_dict['item_name']}")
@@ -167,30 +168,14 @@ def get_threshold_and_send_graph(update, context):
         message += f"{number}. {i['item_name']} - {i['variant_name']} \n\n"
         number += 1
     message += f"Notification: {chosen_threshold}\n\n"
-    message += f"We'll update the chart daily. Check back again tomorrow :)"
-
-    # messages = ["Great! You've chosen to track the following: \n\n"]
-    # for i in context.chat_data['chosen_variants']:
-    #     messages.append(f"{i+1}. {i['item_name']} - {i['variant_name']} \n\n")
-    # # message += f"Notification: {chosen_threshold}\n\n"
-    # # message += f"We'll update the chart daily. Check back again tomorrow :)"
-    # message = ''.join(messages)
-
+    # message += f"We'll update the chart daily. Check back again tomorrow :)"
 
     update.message.reply_markdown(message)
-    # update.message.reply_markdown(f"Great! You've chosen to track the following: \n\n"
-    #                               f"{[i['item_name'] for i in context.chat_data['chosen_variants']]}\n\n"
-    #
-    #                               # f"`{context.chat_data['item']['item_name']}`\n"
-    #                               # f"`Variant: {context.chat_data['chosen_variant']}`\n\n"
-    #                               f"_Notifications_: {chosen_threshold}\n\n"
-    #                               "We'll update the chart daily. Check back again tomorrow :)")
     logger.info("BOT: sent tracking summary")
 
     # todo send tracking summary message
     # send_tracking_summary(update,context)
     send_first_graph(update, context)
-    logger.info("BOT: sent first chart.")
 
     # Store in context
     context.chat_data['threshold'] = parsed_threshold
@@ -210,23 +195,24 @@ def send_first_graph(update, context):
     chat_id = str(update.message.chat.id)
 
     # Create image
-    photo_url = plotly_test.create_image_test(variant_id=variant_id, chat_id=chat_id)
+    photo_url = plotly_utils.generate_photo_url(update,context)
     # update.message.reply_photo(photo=open("images/fig1.png", "rb"))
     photo = open(photo_url, "rb")
     updated_date = datetime.date(datetime.now())
     message = bot.send_photo(chat_id=update.message.chat.id,
                    photo=photo,
                    parse_mode='Markdown',
-                   caption=f"_Last updated:_ ${current_price:.2f} on {updated_date}")
-    chart_message_id = str(message.message_id)
-    photo_url_new = f"{plotly_test.IMAGE_DESTINATION}{variant_id}_{chat_id}_{chart_message_id}.png"
+                   caption=f"_Last updated on {updated_date}_")
+
+    chart_id = str(message.message_id)
+    perm_save_url = f"{plotly_utils.IMAGE_DESTINATION}{chat_id}_{chart_id}.png"
     # Update photo url with message id
     photo.close()
-    shutil.move(photo_url, photo_url_new)
+    shutil.move(photo_url, perm_save_url)
 
     # Store in context
-    context.chat_data['chart_message_id'] = chart_message_id
-    logger.info(f"CONTEXT: chart_message_id:{chart_message_id}")
+    context.chat_data['chart_id'] = chart_id
+    logger.info("BOT: sent first chart.")
 
 
 # def photo(update, context):

@@ -25,7 +25,7 @@ def add_item(dict):
 
 def add_item_variant(item_variant_dict, context):
     chat_id = context.chat_data["chat_id"]
-    chart_id = context.chat_data["chart_message_id"]
+    chart_id = context.chat_data["chart_id"]
     # index = context.chat_data['chosen_variant_index']
     # item_variant_dict = context.chat_data["variants"][index]
 
@@ -80,7 +80,7 @@ def add_chat(context):
 
 def add_chart(context):
     # Find message_id
-    chart_id = context.chat_data["chart_message_id"]
+    chart_id = context.chat_data["chart_id"]
     chat_id = str(context.chat_data['chat_id'])
 
     variant_ids = [i['variant_id'] for i in context.chat_data['chosen_variants']]

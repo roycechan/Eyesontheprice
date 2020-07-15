@@ -20,10 +20,11 @@ def extract_shopee_identifiers(url):
     parameters['shopid'] = product_path[-2]
     return parameters
 
+
 def get_shopee_json(url):
     parameters = extract_shopee_identifiers(url)
-    item_json = utils.retrieve_item_details_json(
-        utils.build_search_url(utils.SHOPEE_SEARCH_LINK, parameters))
+    search_url = utils.build_search_url(utils.SHOPEE_SEARCH_LINK, parameters)
+    item_json = utils.retrieve_item_details_json(search_url)
     return item_json
 
 

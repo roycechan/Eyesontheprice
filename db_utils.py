@@ -40,6 +40,7 @@ def add_item_variant(item_variant_dict, context):
             item_variant_dict['created_price'] = item_variant_dict['current_price']
             # add creation time
             item_variant_dict['created_time'] = datetime.now()
+            item_variant_dict['item_url'] = context.chat_data["item_url"]
 
             item_variant = db_models.ItemVariant(**item_variant_dict)
             item_variant.save()
@@ -82,6 +83,7 @@ def add_chart(context):
     # Find message_id
     chart_id = context.chat_data["chart_id"]
     chat_id = str(context.chat_data['chat_id'])
+    chart_name = context.chat_data['chart_name']
 
     variant_ids = [i['variant_id'] for i in context.chat_data['chosen_variants']]
     # Store fields in dict
@@ -89,7 +91,8 @@ def add_chart(context):
         'chat_id': chat_id,
         'chart_id': chart_id,
         'threshold': context.chat_data['threshold'],
-        'variants': variant_ids
+        'variants': variant_ids,
+        'chart_name': chart_name
     }
     chat_chart = db_models.ChatChartMessage(**chat_chart_dict)
 
@@ -112,7 +115,8 @@ def add_chart(context):
         'chart_id': chart_id,
         'threshold': context.chat_data['threshold'],
         'variants': chart_variants,
-        'variant_names': chart_variant_names
+        'variant_names': chart_variant_names,
+        'chart_name': chart_name
     }
 
     chart = db_models.Chart(**chart_dict)
@@ -131,6 +135,7 @@ def add_chart_variant(item_variant_dict, context):
     channel = context.chat_data['channel']
     current_price = item_variant_dict['current_price']
     created_price = item_variant_dict['current_price']
+    item_url = item_variant_dict['item_url']
 
     created_time = datetime.now()
     last_updated_time = datetime.now()
@@ -144,7 +149,8 @@ def add_chart_variant(item_variant_dict, context):
         'created_time': created_time,
         'last_updated_time': last_updated_time,
         'current_price': current_price,
-        'created_price': created_price
+        'created_price': created_price,
+        'item_url': item_url
     }
     chart_variant = db_models.ChartVariant(**chart_variant_dict)
     logger.info("add_chart_variant: Created chart variant")

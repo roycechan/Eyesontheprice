@@ -29,6 +29,7 @@ class ItemVariant(mongoengine.DynamicDocument):
     chart_ids = mongoengine.ListField(mongoengine.StringField())
     price_change = mongoengine.DecimalField()
     price_change_percent = mongoengine.FloatField()
+    item_url = mongoengine.StringField()
     meta = {
         'collection': 'variants',
         'indexes': [
@@ -55,6 +56,7 @@ class ChartVariant(mongoengine.EmbeddedDocument):
     stock = mongoengine.IntField()
     # price_change = mongoengine.DecimalField()
     # price_change_percent = mongoengine.FloatField()
+    item_url = mongoengine.StringField()
     meta = {
         'collection': 'variants',
         'indexes': [
@@ -67,6 +69,7 @@ class Chart(mongoengine.DynamicDocument):
     # chart id = message id
     chart_id = mongoengine.StringField(required=True)
     chat_id = mongoengine.StringField(required=True)
+    chart_name = mongoengine.StringField()
     variants = mongoengine.EmbeddedDocumentListField(ChartVariant)
     variant_names = mongoengine.ListField(mongoengine.StringField())
     threshold = mongoengine.IntField()
@@ -93,6 +96,7 @@ class ChatChartMessage(mongoengine.EmbeddedDocument):
     threshold = mongoengine.IntField()
     price_changes = mongoengine.ListField(mongoengine.DecimalField())
     price_changes_percent = mongoengine.ListField(mongoengine.FloatField())
+    chart_name = mongoengine.StringField()
     # meta = {
     #     'collection': 'charts'
     # }

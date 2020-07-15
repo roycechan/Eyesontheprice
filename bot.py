@@ -33,7 +33,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE = range(5)
+INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE,TYPE_CHART_NAME = range(6)
 
 SUPPORTED_CHANNELS = ['shopee']
 
@@ -96,19 +96,20 @@ def get_url_and_display_variant(update, context):
             update.message.reply_text(f"I support {channel}. Brb! I'm going to find out more about the product.")
             item_dict, variants_dict, variants_display_dict = utils.get_item_information(channel, search_url)
             update.message.reply_markdown(f'Hurray! We found \n\n`{item_dict["item_name"]}`\n\n'
-                                          'Which variant would you like to track?',
+                                          'Which sub-product prices would you like to track?',
                                           reply_markup=ReplyKeyboardMarkup.from_column(variants_display_dict,
                                                                                        one_time_keyboard=True))
             logger.info(f"BOT: prompted {user.first_name} for variant choice")
 
             # Store in context
             context_store_item(item_dict, context)
+            context.chat_data['item_url'] = utils.shorten_url([search_url])[0]
             context.chat_data['channel'] = utils.extract_domain(search_url)
             context.chat_data['variants'] = variants_dict
             logger.info(context.chat_data['variants'])
             context.chat_data['variants_displayed'] = variants_display_dict
             # context.chat_data['item'] = item_dict
-            logger.info(f"CONTEXT: Stored channel, variants, display for item {item_dict['item_name']}")
+            logger.info(f"CONTEXT: Stored channel, variants, display, url for item {item_dict['item_name']}")
 
             return CHOOSE_THRESHOLD
 
@@ -131,19 +132,32 @@ def get_variants(update, context):
     logger.info(f"{user.first_name} chose {chosen_variant}")
 
     # Store in context
+    context.chat_data['variants'][chosen_variant_index]['item_url'] = context.chat_data['item_url']
     context_store_item_variant(context.chat_data['variants'][chosen_variant_index], context)
     context.chat_data['chosen_variant'] = chosen_variant
     context.chat_data['chosen_variant_index'] = chosen_variant_index
     logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
 
-    update.message.reply_text(f'Would you like to add another similar product to track in this chart?',
+    update.message.reply_text(f'I will create a chart for you to track the prices over time. Before I do so, would you like to add a similar product to track in this chart e.g. another listing on Shopee that is similar to your product?',
                               reply_markup=ReplyKeyboardMarkup.from_column(add_product_existing_reply_keyboard,
                                                                            one_time_keyboard=True))
     return ADD_PRODUCT_CHOICE
 
 
+def get_chart_name(update, context):
+    user = context.chat_data['user']
+    update.message.reply_text(f"Now, it's time to give your chart a name!")
+    logger.info(f"BOT: prompted {user.first_name} for chart name")
+
+    return TYPE_CHART_NAME
+
+
 def display_threshold(update, context):
     user = context.chat_data['user']
+
+    text = update.message.text
+    context.chat_data['chart_name'] = text
+    logger.info("Chart name: " + text)
 
     update.message.reply_text(f'Would you like to receive updates when the price drops?',
                               reply_markup=ReplyKeyboardMarkup.from_column(threshold_reply_keyboard,
@@ -208,50 +222,12 @@ def send_first_graph(update, context):
     perm_save_url = f"{plotly_utils.IMAGE_DESTINATION}{chat_id}_{chart_id}.png"
     # Update photo url with message id
     photo.close()
-    shutil.move(photo_url, perm_save_url)
+    if photo_url is not plotly_utils.SAMPLE_IMAGE_URL:
+        shutil.move(photo_url, perm_save_url)
 
     # Store in context
     context.chat_data['chart_id'] = chart_id
     logger.info("BOT: sent first chart.")
-
-
-# def photo(update, context):
-#     user = update.message.from_user
-#     photo_file = update.message.photo[-1].get_file()
-#     print(photo_file)
-#     print(update.message.photo)
-#     photo_file.download('user_photo.jpg')
-#     logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
-#     update.message.reply_text('Gorgeous! Now, send me your location please, '
-#                               'or send /skip if you don\'t want to.')
-#
-#     return BIO
-#
-#
-# def skip_photo(update, context):
-#     user = update.message.from_user
-#     logger.info("User %s did not send a photo.", user.first_name)
-#     update.message.reply_text('I bet you look great! Now, send me your location please, '
-#                               'or send /skip.')
-#
-#     return BIO
-#
-#
-# def skip_location(update, context):
-#     user = update.message.from_user
-#     logger.info("User %s did not send a location.", user.first_name)
-#     update.message.reply_text('You seem a bit paranoid! '
-#                               'At last, tell me something about yourself.')
-#
-#     return BIO
-#
-#
-# def bio(update, context):
-#     user = update.message.from_user
-#     logger.info("Bio of %s: %s", user.first_name, update.message.text)
-#     update.message.reply_text('Thank you! I hope we can talk again some day.')
-#
-#     return ConversationHandler.END
 
 
 def cancel(update, context):
@@ -294,8 +270,7 @@ def context_store_item_variant(item_variant_dict, context):
         context.chat_data['chosen_variants'].append(item_variant_dict.copy())
     else:
         context.chat_data['chosen_variants'] = [item_variant_dict]
-    # item_names = [i['variant_name'] for i in context.chat_data['items']]
-    logger.info(context.chat_data)
+    logger.info(context.chat_data['chosen_variants'])
     logger.info(f"CONTEXT: Stored variants")
 
 
@@ -329,7 +304,9 @@ def main():
             STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold_and_send_graph)],
 
             ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex('^Add a similar product$'), prompt_url),
-                                 MessageHandler(Filters.regex('^No other products to add$'), display_threshold)],
+                                 MessageHandler(Filters.regex('^No other products to add$'), get_chart_name)],
+
+            TYPE_CHART_NAME: [MessageHandler(Filters.text, display_threshold)],
 
         },
 

@@ -5,6 +5,9 @@ import requests
 import re
 import logging
 import shopee_utils
+from bitlyshortener import Shortener
+import credentials
+
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -61,10 +64,16 @@ def retrieve_item_details_json(url):
     return r
 
 
-def parse_threshold(string):
-    if string is not "Don't need to update me":
+def parse_threshold(choice):
+    if "update" not in choice:
         # extract number X from string with X%
-        threshold = string.split()[-1].split('%')[0]
+        threshold = choice.split()[-1].split('%')[0]
         return threshold
     else:
         return 100
+
+
+def shorten_url(long_urls):
+    shortener = Shortener(tokens=credentials.BITLY_TOKENS, max_cache_size=8192)
+    urls = shortener.shorten_urls(long_urls)
+    return urls

@@ -92,7 +92,7 @@ def add_chart(context):
         'chart_id': chart_id,
         'threshold': context.chat_data['threshold'],
         'variants': variant_ids,
-        'chart_name': chart_name
+        'chart_name': chart_name,
     }
     chat_chart = db_models.ChatChartMessage(**chat_chart_dict)
 
@@ -116,7 +116,8 @@ def add_chart(context):
         'threshold': context.chat_data['threshold'],
         'variants': chart_variants,
         'variant_names': chart_variant_names,
-        'chart_name': chart_name
+        'chart_name': chart_name,
+        'notified_count': 0
     }
 
     chart = db_models.Chart(**chart_dict)
@@ -190,3 +191,8 @@ def store_in_db(context):
     add_chat(context)
     logger.info(f"DB: Chat stored")
     logger.info(f"DB: Completed DB operation.")
+
+
+def retrieve_chart_collection():
+    charts = db_models.Chart.objects
+    return charts

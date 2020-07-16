@@ -7,6 +7,8 @@ import logging
 import shopee_utils
 from bitlyshortener import Shortener
 import credentials
+from datetime import datetime
+
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -77,3 +79,8 @@ def shorten_url(long_urls):
     shortener = Shortener(tokens=credentials.BITLY_TOKENS, max_cache_size=8192)
     urls = shortener.shorten_urls(long_urls)
     return urls
+
+
+def get_current_date():
+    current_date = datetime.date(datetime.now())
+    return current_date

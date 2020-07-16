@@ -49,13 +49,14 @@ class ChartVariant(mongoengine.EmbeddedDocument):
     created_time = mongoengine.DateTimeField()
     created_price = mongoengine.DecimalField()
     current_price = mongoengine.DecimalField()
-    # price_history = mongoengine.EmbeddedDocumentListField(Price)
-    # date_list = mongoengine.ListField(mongoengine.StringField())
-    # price_list = mongoengine.ListField(mongoengine.DecimalField())
+    price_history = mongoengine.EmbeddedDocumentListField(Price)
+    date_list = mongoengine.ListField(mongoengine.StringField())
+    price_list = mongoengine.ListField(mongoengine.DecimalField())
     currency = mongoengine.StringField()
     stock = mongoengine.IntField()
-    # price_change = mongoengine.DecimalField()
-    # price_change_percent = mongoengine.FloatField()
+    price_change = mongoengine.DecimalField()
+    price_change_percent = mongoengine.FloatField()
+    lowest_price = mongoengine.DecimalField()
     item_url = mongoengine.StringField()
     meta = {
         'collection': 'variants',
@@ -74,7 +75,8 @@ class Chart(mongoengine.DynamicDocument):
     variant_names = mongoengine.ListField(mongoengine.StringField())
     threshold = mongoengine.IntField()
     price_change_percent_list = mongoengine.ListField(mongoengine.DecimalField())
-    threshold_hit_list = mongoengine.ListField(mongoengine.DecimalField())
+    threshold_hit = mongoengine.IntField()
+    notified_count = mongoengine.IntField()
     meta = {
         'collection': 'charts',
         'indexes': [

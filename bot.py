@@ -138,7 +138,7 @@ def get_variants(update, context):
     context.chat_data['chosen_variant_index'] = chosen_variant_index
     logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
 
-    update.message.reply_text(f'I will create a chart for you to track the prices over time. Before I do so, would you like to add a similar product to track in this chart e.g. another listing on Shopee that is similar to your product?',
+    update.message.reply_text(f'I will create a chart for you to track the prices over time. \n\nBefore I do so, would you like to add a similar product to track in this chart e.g. another listing on Shopee that is similar to your product?',
                               reply_markup=ReplyKeyboardMarkup.from_column(add_product_existing_reply_keyboard,
                                                                            one_time_keyboard=True))
     return ADD_PRODUCT_CHOICE
@@ -212,7 +212,7 @@ def send_first_graph(update, context):
     photo_url = plotly_utils.generate_photo_url(update,context)
     # update.message.reply_photo(photo=open("images/fig1.png", "rb"))
     photo = open(photo_url, "rb")
-    updated_date = datetime.date(datetime.now())
+    updated_date = utils.get_current_date()
     message = bot.send_photo(chat_id=update.message.chat.id,
                    photo=photo,
                    parse_mode='Markdown',

@@ -15,7 +15,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 
-def plot(date_lists, price_lists, variants, items, chart_name):
+def plot(date_lists, price_lists, variants, items, chart_name='Price Change'):
 
     labels = [string.ascii_uppercase[i] for i in range(0, len(variants))]
 
@@ -54,7 +54,7 @@ def plot(date_lists, price_lists, variants, items, chart_name):
     fig.update_layout(legend=dict(
         orientation="h",
         yanchor="bottom",
-        y=-0.2,
+        y=-0.3,
         xanchor="auto",
         x=-0.05,
         font=dict(
@@ -93,25 +93,33 @@ def plot(date_lists, price_lists, variants, items, chart_name):
     return fig
 
 
-def update_image(chat_id, message_id, chart_name):
+def update_image(chat_id, message_id, chart_name="Price Change"):
     # retrieve chart
+    save_url = f"{IMAGE_DESTINATION}{chat_id}_{message_id}.png"
     chart = db_models.Chart.objects.get(chart_id=message_id, chat_id=chat_id)
 
     date_lists = []
     price_lists = []
+    variants = []
+    items = []
 
     for variant in chart.variants:
-        date_lists.append(variant.date_list)
-        price_lists.append(variant.price_list)
+        if len(variant.date_list) > 0:
+            date_lists.append(variant.date_list)
+            price_lists.append(variant.price_list)
+            variants.append(variant.variant_name)
+            items.append(variant.item_name)
+            # print("variant added")
 
-    variants = [variant.variant_name for variant in chart.variants]
-    items = [variant.item_name for variant in chart.variants]
-    save_url = f"{IMAGE_DESTINATION}{chat_id}_{message_id}.png"
-    # print(f"Image saved to: {save_url}")
-
-    fig = plot(date_lists,price_lists, variants, items, chart_name)
-    fig.write_image(save_url)
-    return save_url
+    # print(date_lists)
+    if any(date_lists):
+        # print("plotting")
+        fig = plot(date_lists, price_lists, variants, items, chart_name)
+        fig.write_image(save_url)
+        logger.info(f"Image saved to: {save_url}")
+        return save_url
+    else:
+        return None
 
 
 def generate_photo_url(update, context):

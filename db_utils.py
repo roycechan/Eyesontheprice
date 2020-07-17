@@ -4,10 +4,13 @@ from credentials import DB_URI
 import db_models
 from datetime import datetime
 import logging
+import sys
+
 import decimal
 
 # Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+logging.basicConfig(stream=sys.stdout,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -195,4 +198,17 @@ def store_in_db(context):
 
 def retrieve_chart_collection():
     charts = db_models.Chart.objects
+    logger.info(f"{len(charts)} charts to update...")
     return charts
+
+
+def retrieve_charts_to_notify():
+    charts = db_models.Chart.objects(threshold_hit=1, notified_count__lt=3)
+    logger.info(f"{len(charts)} notifications to send...")
+    return charts
+
+
+def increment_notified_count(chat_id, chart_id):
+    db_models.Chart.objects(chat_id=chat_id, chart_id=chart_id).update_one(inc__notified_count=1,
+                                                                           upsert=True)
+    logger.info(f"Incremented notified count for chat {chat_id} chart {chart_id}")

@@ -69,10 +69,10 @@ def retrieve_item_details_json(url):
 def parse_threshold(choice):
     if "update" not in choice:
         # extract number X from string with X%
-        threshold = choice.split()[-1].split('%')[0]
+        threshold = -choice.split()[-1].split('%')[0]
         return threshold
     else:
-        return 100
+        return -100
 
 
 def shorten_url(long_urls):

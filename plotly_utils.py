@@ -6,11 +6,13 @@ from datetime import datetime
 import shutil
 import string
 import db_models
+import sys
 
 IMAGE_DESTINATION = "images/"
 SAMPLE_IMAGE_URL = f"{IMAGE_DESTINATION}sample.png"
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+logging.basicConfig(stream=sys.stdout,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -102,6 +104,8 @@ def update_image(chat_id, message_id, chart_name="Price Change"):
     price_lists = []
     variants = []
     items = []
+    created_prices = []
+    created_dates = []
 
     for variant in chart.variants:
         if len(variant.date_list) > 0:
@@ -109,6 +113,8 @@ def update_image(chat_id, message_id, chart_name="Price Change"):
             price_lists.append(variant.price_list)
             variants.append(variant.variant_name)
             items.append(variant.item_name)
+            created_prices.append(variant.created_price)
+            created_dates.append(variant.created_time.date())
             # print("variant added")
 
     # print(date_lists)
@@ -117,7 +123,10 @@ def update_image(chat_id, message_id, chart_name="Price Change"):
         fig = plot(date_lists, price_lists, variants, items, chart_name)
         fig.write_image(save_url)
         logger.info(f"Image saved to: {save_url}")
-        return save_url
+        labels = [string.ascii_uppercase[i] for i in range(0, len(variants))]
+        current_prices = [i[-1] for i in price_lists]
+        price_changes = [((ai/bi)-1) for ai,bi in zip(current_prices, created_prices)]
+        return save_url, labels, current_prices, price_changes, created_dates
     else:
         return None
 

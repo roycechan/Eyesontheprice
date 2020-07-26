@@ -36,7 +36,7 @@ logging.basicConfig(filename="logs",
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE,TYPE_CHART_NAME, STORE_SUGGESTION = range(6)
+INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE,TYPE_CHART_NAME, STORE_SUGGESTION = range(7)
 
 SUPPORTED_CHANNELS = ['shopee']
 
@@ -59,8 +59,8 @@ add_product_existing_reply_keyboard = ['Add a similar product',
 def start(update, context):
     # First time user flow
     update.message.reply_text(
-        "Hi! I keep my eyes on the price so you don't have to. I make it easy for you to compare and track prices of similar products across platforms.\n"
-        "Currently, I support Shopee. I will support Lazada and Qoo10 in the coming months\n"
+        "Hi! I keep my eyes on the price so you don't have to. \n\n I make it easy for you to compare and track prices of similar products across platforms.\n"
+        "Currently, I support Shopee. I will support Lazada and Qoo10 in the coming months\n\n"
         'Send /cancel to stop talking to me.\n\n'
         'What can I do for you today?',
         reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
@@ -233,17 +233,24 @@ def send_first_graph(update, context):
 
 
 def get_suggestion(update, context):
+    update.message.reply_markdown("Do you have suggestions on how we can improve the bot, or ideas on which new websites to track?\n\n"
+                                  "Leave a comment for us and we'll get cracking ;)",
+                                  reply_markup=ReplyKeyboardRemove())
+    return STORE_SUGGESTION
+
+
+def store_suggestion(update, context):
     context.chat_data['suggestion'] = update.message.text
     update.message.reply_markdown("Thank you for your suggestion.")
     # Store everything in DB
     db_utils.store_in_db_suggestion(context)
-    return ConversationHandler.END
+    return cancel
 
 
 def cancel(update, context):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
-    update.message.reply_text('Bye! I hope we can talk again some day.',
+    update.message.reply_text("Bye for now! We'll continue keeping an eye on your prices.",
                               reply_markup=ReplyKeyboardRemove())
 
     return ConversationHandler.END
@@ -297,7 +304,8 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start),
                       CommandHandler('track', prompt_url),
-                      CommandHandler('suggest', get_suggestion)
+                      CommandHandler('suggest', get_suggestion),
+                      CommandHandler('cancel', cancel)
                       ],
 
         states={
@@ -317,7 +325,7 @@ def main():
 
             TYPE_CHART_NAME: [MessageHandler(Filters.text, display_threshold)],
 
-            STORE_SUGGESTION: [MessageHandler(Filters.text, get_suggestion)],
+            STORE_SUGGESTION: [MessageHandler(Filters.text, store_suggestion)],
 
         },
 

@@ -115,10 +115,14 @@ def main():
     update_charts()
     send_notification_to_user()
 
+    updater.stop()
     # Start the Bot
     # updater.start_polling()
 
 if __name__ == '__main__':
     db = db_utils.db_connect("eyesontheprice")
     main()
+    db.close()
+    sys.exit()
+
 

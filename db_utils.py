@@ -199,9 +199,8 @@ def store_in_db(context):
 def store_in_db_suggestion(context):
     # Store in db chat, chart, chart variant
     logger.info(f"DB: Starting DB operations to store suggestion...")
-    logger.info(context.chat_data['user'])
     user = context.chat_data['user']
-    logger.info(f"Storing suggestion for {user['id']}")
+    logger.info(f"Storing suggestion from {user['username']}")
     db_models.Suggestion.objects(user_id=user['id']).upsert_one(set__user_id=str(user['id']),
                                                                    set__username=user['username'],
                                                                    push__suggestions=context.chat_data['suggestion']

@@ -233,6 +233,7 @@ def send_first_graph(update, context):
 
 
 def get_suggestion(update, context):
+    context_store_user(update, context)
     update.message.reply_markdown("Do you have suggestions on how we can improve the bot, or ideas on which new websites to track?\n\n"
                                   "Leave a comment for us and we'll get cracking ;)",
                                   reply_markup=ReplyKeyboardRemove())

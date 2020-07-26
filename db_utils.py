@@ -21,7 +21,6 @@ def db_connect(database):
     return db
 
 
-
 def add_item(dict):
     item = db_models.Item(**dict)
     item.save()
@@ -194,6 +193,20 @@ def store_in_db(context):
         logger.info(f"DB: Item Variant stored: {j['variant_name']}")
     add_chat(context)
     logger.info(f"DB: Chat stored")
+    logger.info(f"DB: Completed DB operation.")
+
+
+def store_in_db_suggestion(context):
+    # Store in db chat, chart, chart variant
+    logger.info(f"DB: Starting DB operations to store suggestion...")
+    user = context.chat_data['user']
+    db_models.Suggestion.objects(user_id=str(user['id']).upsert_one(set__user_id=str(user['id']),
+                                                       set__user_first_name=user['first_name'],
+                                                       set__username=user['username'],
+                                                       push__suggestions=context.chat_data['suggestion']
+                                                       )
+                                 )
+    logger.info(f"DB: Suggestion stored")
     logger.info(f"DB: Completed DB operation.")
 
 

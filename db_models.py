@@ -137,3 +137,9 @@ class Item(mongoengine.DynamicDocument):
         'collection': 'items'
     }
 
+
+class Suggestion(mongoengine.DynamicDocument):
+    user_id = mongoengine.StringField(required=True, primary_key=True)
+    user_first_name = mongoengine.StringField()
+    username = mongoengine.StringField()
+    suggestions = mongoengine.ListField(mongoengine.StringField())

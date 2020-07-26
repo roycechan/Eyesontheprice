@@ -36,7 +36,7 @@ logging.basicConfig(filename="logs",
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE,TYPE_CHART_NAME = range(6)
+INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE,TYPE_CHART_NAME, STORE_SUGGESTION = range(6)
 
 SUPPORTED_CHANNELS = ['shopee']
 
@@ -233,6 +233,14 @@ def send_first_graph(update, context):
     logger.info("BOT: sent first chart.")
 
 
+def get_suggestion(update, context):
+    context.chat_data['suggestion'] = update.message.text
+    update.message.reply_markdown("Thank you for your suggestion.")
+    # Store everything in DB
+    db_utils.store_in_db_suggestion(context)
+    return ConversationHandler.END
+
+
 def cancel(update, context):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
@@ -289,7 +297,8 @@ def main():
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start),
-                      CommandHandler('track', prompt_url)
+                      CommandHandler('track', prompt_url),
+                      CommandHandler('suggest', get_suggestion)
                       ],
 
         states={
@@ -310,6 +319,8 @@ def main():
                                  MessageHandler(Filters.regex('^No other products to add$'), get_chart_name)],
 
             TYPE_CHART_NAME: [MessageHandler(Filters.text, display_threshold)],
+
+            STORE_SUGGESTION: [MessageHandler(Filters.text, get_suggestion)],
 
         },
 

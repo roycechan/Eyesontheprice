@@ -11,9 +11,13 @@ import sys
 IMAGE_DESTINATION = "images/"
 SAMPLE_IMAGE_URL = f"{IMAGE_DESTINATION}sample.png"
 
-logging.basicConfig(stream=sys.stdout,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+# Enable logging
+logging.basicConfig(filename="logs",
+                        stream=sys.stdout,
+                        filemode='a',
+                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 

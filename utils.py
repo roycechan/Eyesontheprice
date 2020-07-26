@@ -8,11 +8,15 @@ import shopee_utils
 from bitlyshortener import Shortener
 import credentials
 from datetime import datetime
+import sys
 
+# Enable logging
+logging.basicConfig(filename="logs",
+                        stream=sys.stdout,
+                        filemode='a',
+                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        level=logging.INFO)
 
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SHOPEE_SEARCH_LINK = "https://shopee.sg/api/v2/item/get?"

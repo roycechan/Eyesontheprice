@@ -6,12 +6,13 @@ from datetime import datetime
 import logging
 import sys
 
-import decimal
-
 # Enable logging
-logging.basicConfig(stream=sys.stdout,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+logging.basicConfig(filename="logs",
+                        stream=sys.stdout,
+                        filemode='a',
+                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 

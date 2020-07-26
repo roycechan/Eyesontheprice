@@ -13,7 +13,6 @@ SAMPLE_IMAGE_URL = f"{IMAGE_DESTINATION}sample.png"
 
 # Enable logging
 logging.basicConfig(filename="logs",
-                        stream=sys.stdout,
                         filemode='a',
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.INFO)

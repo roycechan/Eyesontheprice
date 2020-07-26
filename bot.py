@@ -245,7 +245,7 @@ def store_suggestion(update, context):
     update.message.reply_markdown("Thank you for your suggestion.")
     # Store everything in DB
     db_utils.store_in_db_suggestion(context)
-    return cancel
+    return ConversationHandler.END
 
 
 def cancel(update, context):

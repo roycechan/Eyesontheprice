@@ -139,6 +139,7 @@ class Item(mongoengine.DynamicDocument):
 
 
 class Suggestion(mongoengine.DynamicDocument):
-    user_id = mongoengine.StringField(required=True, primary_key=True)
+    user_id = mongoengine.StringField()
     username = mongoengine.StringField()
-    suggestions = mongoengine.ListField(mongoengine.StringField())
+    suggestion = mongoengine.StringField()
+    created_time = mongoengine.DateTimeField()

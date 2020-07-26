@@ -59,12 +59,11 @@ add_product_existing_reply_keyboard = ['Add a similar product',
 def start(update, context):
     # First time user flow
     update.message.reply_text(
-        'Hi! My name is Pricey. I make it easy for you to compare and track prices across platforms '
+        "Hi! I keep my eyes on the price so you don't have to. I make it easy for you to compare and track prices of similar products across platforms.\n"
+        "Currently, I support Shopee. I will support Lazada and Qoo10 in the coming months\n"
         'Send /cancel to stop talking to me.\n\n'
         'What can I do for you today?',
         reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
-    # todo Returning user flow
-
     return INITIAL_CHOICE
 
 
@@ -302,8 +301,6 @@ def main():
                       ],
 
         states={
-            # INITIAL_CHOICE: [MessageHandler(Filters.regex('^(Compare Prices|Track Prices)$'), prompt_url),
-                             # ],
 
             INITIAL_CHOICE: [MessageHandler(Filters.text, prompt_url),
                              ],
@@ -324,7 +321,9 @@ def main():
 
         },
 
-        fallbacks=[CommandHandler('cancel', cancel)]
+        fallbacks=[CommandHandler('cancel', cancel)],
+
+        allow_reentry=True
     )
 
     dp.add_handler(conv_handler)

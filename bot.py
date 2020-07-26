@@ -61,7 +61,7 @@ def start(update, context):
     update.message.reply_text(
         "Hi! I keep my eyes on the price so you don't have to. \n\n"
         "I make it easy for you to compare and track prices of similar products across platforms.\n\n"
-        "Currently, I support Shopee. I will support Lazada and Qoo10 in the coming months\n\n"
+        "Currently, I support Shopee. I will support Lazada and Qoo10 in the coming months.\n\n"
         "Let's start tracking prices!",
         reply_markup=ReplyKeyboardMarkup(start_reply_keyboard, one_time_keyboard=True))
     return INITIAL_CHOICE

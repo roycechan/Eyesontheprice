@@ -143,3 +143,6 @@ class Suggestion(mongoengine.DynamicDocument):
     username = mongoengine.StringField()
     suggestion = mongoengine.StringField()
     created_time = mongoengine.DateTimeField()
+    meta = {
+        'collection': 'suggestions'
+    }

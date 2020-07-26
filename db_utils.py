@@ -201,7 +201,7 @@ def store_in_db_suggestion(context):
     logger.info(f"DB: Starting DB operations to store suggestion...")
     user = context.chat_data['user']
     suggestion_dict = {
-        'user_id': user['id'],
+        'user_id': str(user['id']),
         'username': user['username'],
         'suggestion': context.chat_data['suggestion'],
         'created_time': datetime.now()

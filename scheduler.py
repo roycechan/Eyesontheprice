@@ -1,6 +1,5 @@
 import schedule
 import time
-import daily_bot
 import logging
 import os
 
@@ -19,8 +18,8 @@ def job():
     os.system('python daily_bot.py')
     logger.info("Scheduled task ended.")
 
-# scheduler.py.every().day.at("10:30").do(job)
-schedule.every().minute.at(":17").do(job)
+schedule.every().day.at("06:00").do(job)
+# schedule.every().minute.at(":17").do(job)
 
 while True:
     schedule.run_pending()

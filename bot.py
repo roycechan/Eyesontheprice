@@ -40,7 +40,7 @@ INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_C
 
 SUPPORTED_CHANNELS = ['shopee']
 
-start_reply_keyboard = [['Start tracking prices']]
+start_reply_keyboard = [["Let's go!"]]
 
 returning_reply_keyboard = [['Track price of new product',
                              'Add product to existing chart',
@@ -50,7 +50,7 @@ returning_reply_keyboard = [['Track price of new product',
 threshold_reply_keyboard = ['When price drops by more than 10%',
                             'When price drops by more than 20%',
                             'When price drops by more than 30%',
-                            "Don't need to update me"]
+                            "I don't need an update"]
 
 add_product_existing_reply_keyboard = ['Add a similar product',
                                        'No other products to add']
@@ -81,7 +81,7 @@ def prompt_url(update, context):
     context_store_user(update, context)
 
     logger.info(f"{context.chat_data['user'].first_name} chose {update.message.text}")
-    update.message.reply_text('All right! Please paste a Shopee product URL here.',
+    update.message.reply_text('Tell me, what might your Shopee product URL be?',
                               reply_markup=ReplyKeyboardRemove())
 
     return CHOOSE_VARIANT
@@ -95,10 +95,10 @@ def get_url_and_display_variant(update, context):
         logger.info("Bot extracted URL: %s", search_url)
         channel = utils.extract_domain(search_url)
         if channel in SUPPORTED_CHANNELS:
-            update.message.reply_text(f"I support {channel}. Brb! I'm going to find out more about the product.")
+            update.message.reply_text(f"Brb! I'm learning more about this product on {channel}.")
             item_dict, variants_dict, variants_display_dict = utils.get_item_information(channel, search_url)
-            update.message.reply_markdown(f'Hurray! We found \n\n`{item_dict["item_name"]}`\n\n'
-                                          'Which sub-product prices would you like to track?',
+            update.message.reply_markdown(f"Hurray! Ive found \n\n`{item_dict["item_name"]}`\n\n"
+                                          'Which of these product variations would you like to track?',
                                           reply_markup=ReplyKeyboardMarkup.from_column(variants_display_dict,
                                                                                        one_time_keyboard=True))
             logger.info(f"BOT: prompted {user.first_name} for variant choice")
@@ -140,7 +140,7 @@ def get_variants(update, context):
     context.chat_data['chosen_variant_index'] = chosen_variant_index
     logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
 
-    update.message.reply_text(f'I will create a chart for you to track the prices over time. \n\nBefore I do so, would you like to add a similar product to track in this chart e.g. another listing on Shopee that is similar to your product?',
+    update.message.reply_text(f"I'll chart out the prices across time to help you with price tracking! \n\n Is there a similar product you'll like to add to the chart? e.g. a similar product on {channel}?",
                               reply_markup=ReplyKeyboardMarkup.from_column(add_product_existing_reply_keyboard,
                                                                            one_time_keyboard=True))
     return ADD_PRODUCT_CHOICE
@@ -148,7 +148,8 @@ def get_variants(update, context):
 
 def get_chart_name(update, context):
     user = context.chat_data['user']
-    update.message.reply_text(f"Now, it's time to give your chart a name!")
+    update.message.reply_text(f"Now, it's time to give your chart a name!\n\n" 
+                               "You can retrieve this chart through its name next time!")
     logger.info(f"BOT: prompted {user.first_name} for chart name")
 
     return TYPE_CHART_NAME
@@ -161,7 +162,7 @@ def display_threshold(update, context):
     context.chat_data['chart_name'] = text
     logger.info("Chart name: " + text)
 
-    update.message.reply_text(f'Would you like to receive updates when the price drops?',
+    update.message.reply_text(f'Shall I send you an alert when the price drops?',
                               reply_markup=ReplyKeyboardMarkup.from_column(threshold_reply_keyboard,
                                                                            one_time_keyboard=True))
 
@@ -234,15 +235,15 @@ def send_first_graph(update, context):
 
 def get_suggestion(update, context):
     context_store_user(update, context)
-    update.message.reply_markdown("Do you have suggestions on how we can improve the bot, or ideas on which new websites to track?\n\n"
-                                  "Leave a comment for us and we'll get cracking ;)",
+    update.message.reply_markdown("Do you have suggestions on how we can improve the bot, or ideas on new websites to track?\n\n"
+                                  "Leave a comment and we'll get cracking ;)",
                                   reply_markup=ReplyKeyboardRemove())
     return STORE_SUGGESTION
 
 
 def store_suggestion(update, context):
     context.chat_data['suggestion'] = update.message.text
-    update.message.reply_markdown("Thank you for your suggestion.")
+    update.message.reply_markdown("Thanks for your suggestion.")
     # Store everything in DB
     db_utils.store_in_db_suggestion(context)
     return ConversationHandler.END
@@ -251,7 +252,7 @@ def store_suggestion(update, context):
 def cancel(update, context):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
-    update.message.reply_text("Bye for now! We'll continue keeping an eye on your prices.",
+    update.message.reply_text("Bye for now! Leave it to me, I'll keep an eye on the prices you wanna track.",
                               reply_markup=ReplyKeyboardRemove())
 
     return ConversationHandler.END
@@ -321,8 +322,8 @@ def main():
 
             STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold_and_send_graph)],
 
-            ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex('^Add a similar product$'), prompt_url),
-                                 MessageHandler(Filters.regex('^No other products to add$'), get_chart_name)],
+            ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex("^I'll like to add this product$"), prompt_url),
+                                 MessageHandler(Filters.regex("^I don't have another product to add$"), get_chart_name)],
 
             TYPE_CHART_NAME: [MessageHandler(Filters.text, display_threshold)],
 

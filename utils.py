@@ -87,3 +87,17 @@ def shorten_url(long_urls):
 def get_current_date():
     current_date = datetime.date(datetime.now())
     return current_date
+
+
+def difference_in_days(current, previous):
+    try:
+        current_day = current.date()
+        previous_day = previous.date()
+        time_diff = current_day - previous_day
+        day_diff = time_diff.days
+        return day_diff
+    except AttributeError:
+        time_diff = current - previous
+        day_diff = time_diff.days
+        return day_diff
+

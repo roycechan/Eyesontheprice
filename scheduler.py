@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 def job():
     logger.info("Scheduled task starting...")
+    os.system('python daily_shopee.py')
     os.system('python daily_bot.py')
     logger.info("Scheduled task ended.")
 

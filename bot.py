@@ -97,7 +97,7 @@ def get_url_and_display_variant(update, context):
         if channel in SUPPORTED_CHANNELS:
             update.message.reply_text(f"Brb! I'm learning more about this product on {channel}.")
             item_dict, variants_dict, variants_display_dict = utils.get_item_information(channel, search_url)
-            update.message.reply_markdown(f"Hurray! Ive found \n\n`{item_dict["item_name"]}`\n\n"
+            update.message.reply_markdown(f"Hurray! Ive found \n\n{item_dict['item_name']}\n\n"
                                           'Which of these product variations would you like to track?',
                                           reply_markup=ReplyKeyboardMarkup.from_column(variants_display_dict,
                                                                                        one_time_keyboard=True))
@@ -140,7 +140,8 @@ def get_variants(update, context):
     context.chat_data['chosen_variant_index'] = chosen_variant_index
     logger.info(f"CONTEXT: chosen variant: {chosen_variant}, index: {chosen_variant_index}")
 
-    update.message.reply_text(f"I'll chart out the prices across time to help you with price tracking! \n\n Is there a similar product you'll like to add to the chart? e.g. a similar product on {channel}?",
+    update.message.reply_text(f"I'll chart out the prices across time to help you with price tracking! \n\n"
+                              f"Is there a similar product you'll like to add to the chart? e.g. a similar product on {context.chat_data['channel']}?",
                               reply_markup=ReplyKeyboardMarkup.from_column(add_product_existing_reply_keyboard,
                                                                            one_time_keyboard=True))
     return ADD_PRODUCT_CHOICE

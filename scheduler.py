@@ -18,6 +18,7 @@ def job():
     os.system('python daily_bot.py')
     logger.info("Scheduled task ended.")
 
+
 schedule.every().day.at("06:00").do(job)
 # schedule.every().minute.at(":17").do(job)
 

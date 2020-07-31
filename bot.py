@@ -31,7 +31,7 @@ bot = telegram.Bot(token=TELEGRAM_TOKEN)
 # Enable logging
 logging.basicConfig(filename="logs",
                         filemode='a',
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        format='%(asctime)s - %(module)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -52,11 +52,12 @@ threshold_reply_keyboard = ['When price drops by more than 10%',
                             'When price drops by more than 30%',
                             "I don't need an update"]
 
-add_product_existing_reply_keyboard = ['Add a similar product',
-                                       'No other products to add']
+add_product_existing_reply_keyboard = ["I'll like to add this product",
+                                       "I don't have another product to add"]
 
 
 def start(update, context):
+    context_clear(context)
     # First time user flow
     update.message.reply_text(
         "Hi! I've my eyes glued to the prices so you don't have to. \n\n"
@@ -75,7 +76,20 @@ def track(update, context):
     return INITIAL_CHOICE
 
 
+def prompt_next_url(update, context):
+    # store char id and user data
+    context_store_chat_id(update, context)
+    context_store_user(update, context)
+
+    logger.info(f"{context.chat_data['user'].first_name} chose {update.message.text}")
+    update.message.reply_text('Tell me, what might your Shopee product URL be?',
+                              reply_markup=ReplyKeyboardRemove())
+
+    return CHOOSE_VARIANT
+
+
 def prompt_url(update, context):
+    context_clear(context)
     # store char id and user data
     context_store_chat_id(update, context)
     context_store_user(update, context)
@@ -188,7 +202,7 @@ def get_threshold_and_send_graph(update, context):
     message += f"Notification: {chosen_threshold}\n\n"
     # message += f"We'll update the chart daily. Check back again tomorrow :)"
 
-    update.message.reply_markdown(message)
+    update.message.reply_text(message, reply_markup=ReplyKeyboardRemove())
     logger.info("BOT: sent tracking summary")
 
     # todo send tracking summary message
@@ -201,6 +215,7 @@ def get_threshold_and_send_graph(update, context):
 
     # Store everything in DB
     db_utils.store_in_db(context)
+    context_clear(context)
 
     return ConversationHandler.END
 
@@ -250,12 +265,13 @@ def store_suggestion(update, context):
     return ConversationHandler.END
 
 
-def cancel(update, context):
+def end(update, context):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
     update.message.reply_text("Bye for now! Leave it to me, I'll keep an eye on the prices you wanna track.",
                               reply_markup=ReplyKeyboardRemove())
-
+    context_clear(context)
+    print(context.chat_data)
     return ConversationHandler.END
 
 
@@ -294,6 +310,25 @@ def context_store_item_variant(item_variant_dict, context):
     logger.info(f"CONTEXT: Stored variants")
 
 
+def context_clear(context):
+    entries_to_remove = ('item_url',
+                         'channel',
+                         'variants',
+                         'variants_displayed',
+                         'chosen_variant',
+                         'chosen_variant_index',
+                         'chart_name',
+                         'threshold',
+                         'chart_id',
+                         'chosen_variants',
+                         'items'
+                         )
+    for i in entries_to_remove:
+        context.chat_data.pop(i, None)
+    logger.info("BOT: Cleared context")
+    return context
+
+
 def main():
     # Create the Updater and pass it your bot's token.
     # Make sure to set use_context=True to use the new context based callbacks
@@ -308,7 +343,7 @@ def main():
         entry_points=[CommandHandler('start', start),
                       CommandHandler('track', prompt_url),
                       CommandHandler('suggest', get_suggestion),
-                      CommandHandler('cancel', cancel)
+                      CommandHandler('end', end)
                       ],
 
         states={
@@ -323,7 +358,7 @@ def main():
 
             STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold_and_send_graph)],
 
-            ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex("^I'll like to add this product$"), prompt_url),
+            ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex("^I'll like to add this product$"), prompt_next_url),
                                  MessageHandler(Filters.regex("^I don't have another product to add$"), get_chart_name)],
 
             TYPE_CHART_NAME: [MessageHandler(Filters.text, display_threshold)],
@@ -332,7 +367,7 @@ def main():
 
         },
 
-        fallbacks=[CommandHandler('cancel', cancel)],
+        fallbacks=[CommandHandler('end', end)],
 
         allow_reentry=True
     )

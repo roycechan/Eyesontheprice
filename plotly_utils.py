@@ -14,7 +14,7 @@ SAMPLE_IMAGE_URL = f"{IMAGE_DESTINATION}sample.png"
 # Enable logging
 logging.basicConfig(filename="logs",
                         filemode='a',
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        format='%(asctime)s - %(module)s - %(name)s - %(levelname)s - %(message)s',
                         level=logging.INFO)
 
 logger = logging.getLogger(__name__)

@@ -27,13 +27,13 @@ bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
 def get_daily_price_and_stock():
     variants = db_models.ItemVariant.objects()
-    logger.info(f"Working on fetching daily information for {len(variants)} variants.\n\n")
+    logger.info(f"Working on fetching daily information for {len(variants)} variants.\n")
     for i, variant in enumerate(variants):
         db_price = variant.current_price
-        logger.info(f"{variant.variant_id}: Found db price {db_price}")
+        logger.info(f"{i+1}. {variant.variant_id}: Found db price {db_price}")
         if variant.channel == "shopee":
             current_price, current_stock = get_shopee_response(variant)
-            update_variant_collection(current_price, current_stock, variant, db_price)
+            update_variant_collection(current_price, current_stock, variant, db_price, i)
 
 
 def get_shopee_response(variant):
@@ -63,7 +63,7 @@ def get_shopee_response(variant):
         return 0, 0
 
 
-def update_variant_collection(current_price, current_stock, variant, db_price):
+def update_variant_collection(current_price, current_stock, variant, db_price, i):
     date_list = get_date_list(variant.created_time)
     price_list = get_price_list(date_list, variant)
     last_updated_time = datetime.now()
@@ -83,7 +83,7 @@ def update_variant_collection(current_price, current_stock, variant, db_price):
                                                                                 set__lowest_price=min(price_list),
                                                                                 upsert=True
                                                                                 )
-        logger.info(f"{variant.variant_id}: Price changed from {db_price} to {current_price}")
+        logger.info(f"{i+1}. {variant.variant_id}: Price changed from {db_price} to {current_price}\n")
 
     else:
         db_models.ItemVariant.objects(variant_id=variant.variant_id).update_one(
@@ -94,7 +94,7 @@ def update_variant_collection(current_price, current_stock, variant, db_price):
                                                                                 set__lowest_price=min(price_list),
                                                                                 upsert=True
                                                                                 )
-        logger.info(f"{variant.variant_id}: Price unchanged at {db_price}")
+        logger.info(f"{i+1}. {variant.variant_id}: Price unchanged at {db_price}\n")
 
 
 def get_date_list(created_time):
@@ -129,9 +129,10 @@ def get_price_list(date_list, variant):
 
 def copy_chart_variants():
     variant_collection = db_models.ItemVariant.objects()
-    logger.info(f"\n\nCopying {len(variant_collection)} variants from ItemVariant to ChartVariant.")
+    logger.info(f"\nCopying {len(variant_collection)} variants from ItemVariant to ChartVariant.")
     for i, variant in enumerate(variant_collection):
         try:
+            logger.info(f"Copying {i+1}. {variant.variant_id} {variant.variant_name}")
             db_models.Chart.objects(variants__variant_id=variant.variant_id).update(set__variants__S__price_history=variant.price_history,
                                                                                         set__variants__S__current_price=variant.current_price,
                                                                                         set__variants__S__price_list=variant.price_list,
@@ -145,13 +146,60 @@ def copy_chart_variants():
     logger.info(f"Copied {len(variant_collection)} variants from ItemVariant to ChartVariant.")
 
 
+def update_chart_variants():
+    chart_collection = db_models.Chart.objects()
+    for i,chart in enumerate(chart_collection):
+        logger.info(f"\nUpdating {i + 1}. {chart.chart_id} {chart.chart_name}")
+        threshold = chart.threshold
+        threshold_hit = 0
+        threshold_hit_list = []
+        price_change_percent_list = []
+
+        for j, chart_variant in enumerate(chart.variants):
+            logger.info(f"Updating {i+1}.{j+1}. {chart_variant.variant_id} {chart_variant.variant_name}")
+            price_change = round(chart_variant.current_price - chart_variant.created_price,2)
+            price_change_percent = round(price_change / chart_variant.created_price, 2) * 100
+
+            if (price_change_percent < 0) & (price_change_percent < threshold) & (price_change_percent != -100):
+                threshold_hit = 1
+                logger.info(f"Updating {i+1}.{j+1}. Threshold hit for {chart_variant.variant_id} {chart_variant.variant_name}. {price_change_percent}|{threshold}")
+            else:
+                logger.info(f"Updating {i+1}.{j+1}. Threshold not hit for {chart_variant.variant_id} {chart_variant.variant_name}. {price_change_percent}|{threshold}")
+
+            threshold_hit_list.append(threshold_hit)
+            price_change_percent_list.append(price_change_percent)
+
+            db_models.Chart.objects(variants__variant_id=chart_variant.variant_id).update(
+                                        set__variants__S__price_change=chart_variant.price_change,
+                                        set__variants__S__price_change_percent=chart_variant.price_change_percent,
+                                        set__variants__S__threshold_hit=threshold_hit,
+            )
+
+        if any(hit > 0 for hit in threshold_hit_list):
+            threshold_hit = 1
+            logger.info(f"Updating {i + 1}. Threshold hit for {chart.chart_id} {chart.chart_name} {threshold_hit_list}")
+        else:
+            threshold_hit = 0
+            logger.info(f"No Update {i + 1}. Threshold not hit for {chart.chart_id} {chart.chart_name} {threshold_hit_list}")
+
+        db_models.Chart.objects(chart_id=chart.chart_id, chat_id=chart.chat_id).update(
+            set__price_change_percent_list=price_change_percent_list,
+            set__threshold_hit_list=threshold_hit_list,
+            set__threshold_hit=threshold_hit
+        )
+
+
 def main():
-    logger.info("\n\n--------------------")
+    logger.info("\n--------------------\n")
     logger.info("Getting daily shopee price and stock")
     get_daily_price_and_stock()
+    logger.info("\n--------------------\n")
     logger.info("Copying item variants and pasting into chart variants")
     copy_chart_variants()
-    logger.info("\n\n--------------------")
+    logger.info("\n--------------------\n")
+    logger.info("Updating chart variants threshold hit")
+    update_chart_variants()
+    logger.info("\n--------------------\n")
 
 
 if __name__ == '__main__':

@@ -10,11 +10,13 @@ import sys
 
 
 # Enable logging
-logging.basicConfig(filename="logs",
-                        filemode='a',
-                        format='%(asctime)s - %(module)s - %(name)s - %(levelname)s - %(message)s',
-                        level=logging.INFO)
-
+logging.basicConfig(
+                    filename="logs",
+                    filemode='a',
+                    format='%(asctime)s - %(module)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO,
+                    )
+logging.getLogger().addHandler(logging.StreamHandler())
 logger = logging.getLogger(__name__)
 
 bot = telegram.Bot(token=TELEGRAM_TOKEN)
@@ -76,23 +78,25 @@ def send_notification_to_user():
     text = ""
     for chart in charts:
         count = 0
-        for variant in chart.variants:
-            if variant.price_change_percent < chart.threshold:
-                text += f"Woohoo!\n\nItem: {variant.item_name}\nSub-product: {variant.variant_name}\n"
-                text += f"*Current Price: ${variant.current_price} ({variant.price_change_percent:.1f}%)*"
-                text += f"\n\n[BUY IT NOW ON {variant.channel.upper()}]({variant.item_url})"
-                bot.send_message(chat_id=chart.chat_id, text=text, parse_mode="Markdown")
-                logger.info(f"Sent notification to user for chat {chart.chat_id} chart {chart.chart_id} variant {variant.variant_name}")
-                count += 1
-            else:
-                logger.info(f"No update for chat {chart.chat_id} chart {chart.chart_id} variant {variant.variant_name}")
-        if count > 0:
-            db_utils.increment_notified_count(chart.chat_id, chart.chart_id)
+        if chart.threshold_hit == 1:
+            for variant in chart.variants:
+                if variant.threshold_hit == 1:
+                    text += f"Woohoo!\n\nItem: {variant.item_name}\nSub-product: {variant.variant_name}\n"
+                    text += f"*Current Price: ${variant.current_price} ({variant.price_change_percent:.1f}%)*"
+                    text += f"\n\n[BUY IT NOW ON {variant.channel.upper()}]({variant.item_url})"
+                    bot.send_message(chat_id=chart.chat_id, text=text, parse_mode="Markdown")
+                    logger.info(f"Sent notification to user for chat {chart.chat_id} chart {chart.chart_id} variant {variant.variant_name}")
+                    count += 1
+                else:
+                    logger.info(f"No update for chat {chart.chat_id} chart {chart.chart_id} variant {variant.variant_name}")
+            if count > 0:
+                db_utils.increment_notified_count(chart.chat_id, chart.chart_id)
     logger.info(f"User notification done.\n\n-----\n\n")
 
-def callback_30(context: telegram.ext.CallbackContext):
-    context.bot.send_message(chat_id=429954679,
-                             text='A single message with 30s delay')
+
+# def callback_30(context: telegram.ext.CallbackContext):
+#     context.bot.send_message(chat_id=429954679,
+#                              text='A single message with 30s delay')
 
 
 def error(update, context):

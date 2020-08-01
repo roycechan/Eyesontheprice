@@ -58,6 +58,7 @@ class ChartVariant(mongoengine.EmbeddedDocument):
     price_change_percent = mongoengine.FloatField()
     lowest_price = mongoengine.DecimalField()
     item_url = mongoengine.StringField()
+    threshold_hit = mongoengine.IntField()
     meta = {
         'collection': 'variants',
         'indexes': [

@@ -7,11 +7,13 @@ import logging
 import sys
 
 # Enable logging
-logging.basicConfig(filename="logs",
-                        filemode='a',
-                        format='%(asctime)s - %(module)s - %(name)s - %(levelname)s - %(message)s',
-                        level=logging.INFO)
-
+logging.basicConfig(
+                    filename="logs",
+                    filemode='a',
+                    format='%(asctime)s - %(module)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO,
+                    )
+logging.getLogger().addHandler(logging.StreamHandler())
 logger = logging.getLogger(__name__)
 
 

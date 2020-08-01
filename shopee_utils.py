@@ -3,6 +3,13 @@ import urllib
 from urllib.parse import urlparse
 import logging
 
+logging.basicConfig(
+                    filename="logs",
+                    filemode='a',
+                    format='%(asctime)s - %(module)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO,
+                    )
+logging.getLogger().addHandler(logging.StreamHandler())
 logger = logging.getLogger(__name__)
 
 SHOPEE_PRICE_DENOMINATION = 100000

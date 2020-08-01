@@ -358,7 +358,7 @@ def main():
 
             STORE_THRESHOLD: [MessageHandler(Filters.text, get_threshold_and_send_graph)],
 
-            ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex("^I'll like to add this product$"), prompt_next_url),
+            ADD_PRODUCT_CHOICE: [MessageHandler(Filters.regex("^I'll like to add another product$"), prompt_next_url),
                                  MessageHandler(Filters.regex("^I don't have another product to add$"), get_chart_name)],
 
             TYPE_CHART_NAME: [MessageHandler(Filters.text, display_threshold)],

@@ -175,7 +175,7 @@ def update_chart_variants():
                                         set__variants__S__threshold_hit=threshold_hit,
             )
 
-        if any(hit > 0 for hit in threshold_hit_list):
+        if sum(threshold_hit_list) > 0:
             threshold_hit = 1
             logger.info(f"Updating {i + 1}. Threshold hit for {chart.chart_id} {chart.chart_name} {threshold_hit_list}")
         else:

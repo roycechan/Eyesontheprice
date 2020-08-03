@@ -130,7 +130,7 @@ def update_image(chat_id, message_id, chart_name="Price Change"):
         logger.info(f"Image saved to: {save_url}")
         labels = [string.ascii_uppercase[i] for i in range(0, len(variants))]
         current_prices = [i[-1] for i in price_lists]
-        price_changes = [((ai/bi)-1) for ai,bi in zip(current_prices, created_prices)]
+        price_changes = [((ai/bi)-1)*100 for ai,bi in zip(current_prices, created_prices)]
         return save_url, labels, current_prices, price_changes, created_dates
     else:
         return None

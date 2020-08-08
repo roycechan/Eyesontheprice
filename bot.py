@@ -312,7 +312,7 @@ def find_chart(update, context):
     bot.send_message(chat_id=chat_id,
                      text=f"Found it! Jump to your chart by clicking on the message above",
                      reply_to_message_id=chart_id)
-    return ConversationHandler.END
+    return end(update, context)
 
 
 def delete_chart(update, context):
@@ -322,7 +322,7 @@ def delete_chart(update, context):
     logger.info(f"{user.first_name} is deleting {chart_name}")
     chart_id = db_utils.get_chart_id(chat_id, chart_name)
     logger.info(f"DB: Found {user.first_name}'s {chart_name} message {chart_id}")
-    return ConversationHandler.END
+    return end(update, context)
 
 
 def add_chart(update, context):

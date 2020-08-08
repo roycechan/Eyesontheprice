@@ -36,7 +36,17 @@ logging.basicConfig(filename="logs",
 
 logger = logging.getLogger(__name__)
 
-INITIAL_CHOICE, CHOOSE_THRESHOLD, CHOOSE_VARIANT, STORE_THRESHOLD, ADD_PRODUCT_CHOICE,TYPE_CHART_NAME, STORE_SUGGESTION = range(7)
+INITIAL_CHOICE, \
+CHOOSE_THRESHOLD, \
+CHOOSE_VARIANT, \
+STORE_THRESHOLD, \
+ADD_PRODUCT_CHOICE,\
+TYPE_CHART_NAME, \
+STORE_SUGGESTION, \
+CHART_COMMANDS, \
+DISPLAY_CHARTS, \
+FIND_CHART \
+    = range(10)
 
 SUPPORTED_CHANNELS = ['shopee']
 
@@ -55,6 +65,9 @@ threshold_reply_keyboard = ['When price drops by more than 10%',
 add_product_existing_reply_keyboard = ["I'll like to add this product",
                                        "I don't have another product to add"]
 
+chart_reply_keyboard = ['Find chart',
+                        'Delete chart',
+                        'Add new chart']
 
 def start(update, context):
     context_clear(context)
@@ -172,17 +185,24 @@ def get_chart_name(update, context):
 
 def display_threshold(update, context):
     user = context.chat_data['user']
-
+    chat_id = str(update.message.chat.id)
     text = update.message.text
-    context.chat_data['chart_name'] = text
-    logger.info("Chart name: " + text)
 
-    update.message.reply_text(f'Shall I send you an alert when the price drops?',
-                              reply_markup=ReplyKeyboardMarkup.from_column(threshold_reply_keyboard,
-                                                                           one_time_keyboard=True))
+    if db_utils.validate_chart_name(chat_id, text) is False:
+        logger.info(f"BOT: {user.first_name}'s chart name is unused")
+        context.chat_data['chart_name'] = text
+        logger.info("Chart name: " + text)
 
-    logger.info(f"BOT: prompted {user.first_name} for notification threshold")
-    return STORE_THRESHOLD
+        update.message.reply_text(f'Shall I send you an alert when the price drops?',
+                                  reply_markup=ReplyKeyboardMarkup.from_column(threshold_reply_keyboard,
+                                                                               one_time_keyboard=True))
+
+        logger.info(f"BOT: prompted {user.first_name} for notification threshold")
+        return STORE_THRESHOLD
+    else:
+        logger.info(f"BOT: {user.first_name}'s chart name is used, prompting user for another chart name")
+        update.message.reply_text(f"Oops! You've used this chart name before. Please give your chart another name!")
+        return get_chart_name(update, context)
 
 
 def get_threshold_and_send_graph(update, context):
@@ -265,6 +285,50 @@ def store_suggestion(update, context):
     return ConversationHandler.END
 
 
+def chart(update, context):
+    logger.info(f"BOT: User requesting chart information")
+    update.message.reply_text(f"Finding a chart that you previously saved? Need to add a new chart?",
+                              reply_markup=ReplyKeyboardMarkup.from_column(chart_reply_keyboard,
+                                                                           one_time_keyboard=True))
+    return CHART_COMMANDS
+
+
+def display_charts(update, context):
+    chat_id = str(update.message.chat.id)
+    chart_names = db_utils.get_chart_names(chat_id)
+    update.message.reply_text(f"Which chart would you like to see?",
+                              reply_markup=ReplyKeyboardMarkup.from_column(chart_names,
+                                                                           one_time_keyboard=True))
+    return FIND_CHART
+
+
+def find_chart(update, context):
+    chart_name = update.message.text
+    chat_id = str(update.message.chat.id)
+    user = update.message.from_user
+    logger.info(f"{user.first_name} is finding {chart_name}")
+    chart_id = db_utils.get_chart_id(chat_id, chart_name)
+    logger.info(f"DB: Found {user.first_name}'s {chart_name} message {chart_id}")
+    bot.send_message(chat_id=chat_id,
+                     text=f"Found it! Jump to your chart by clicking on the message above",
+                     reply_to_message_id=chart_id)
+    return ConversationHandler.END
+
+
+def delete_chart(update, context):
+    chart_name = update.message.text
+    chat_id = str(update.message.chat.id)
+    user = update.message.from_user
+    logger.info(f"{user.first_name} is deleting {chart_name}")
+    chart_id = db_utils.get_chart_id(chat_id, chart_name)
+    logger.info(f"DB: Found {user.first_name}'s {chart_name} message {chart_id}")
+    return ConversationHandler.END
+
+
+def add_chart(update, context):
+    return prompt_url()
+
+
 def end(update, context):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
@@ -343,7 +407,8 @@ def main():
         entry_points=[CommandHandler('start', start),
                       CommandHandler('track', prompt_url),
                       CommandHandler('suggest', get_suggestion),
-                      CommandHandler('end', end)
+                      CommandHandler('end', end),
+                      CommandHandler('chart', chart)
                       ],
 
         states={
@@ -364,6 +429,14 @@ def main():
             TYPE_CHART_NAME: [MessageHandler(Filters.text, display_threshold)],
 
             STORE_SUGGESTION: [MessageHandler(Filters.text, store_suggestion)],
+
+            CHART_COMMANDS: [MessageHandler(Filters.regex("^Find chart$|^Delete chart$"), display_charts),
+                             MessageHandler(Filters.regex("^Add chart$"), add_chart),
+                             ],
+
+            FIND_CHART: [MessageHandler(Filters.text, find_chart)],
+
+            DISPLAY_CHARTS: [MessageHandler(Filters.text, get_threshold_and_send_graph)]
 
         },
 

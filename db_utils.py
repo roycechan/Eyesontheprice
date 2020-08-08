@@ -231,3 +231,22 @@ def increment_notified_count(chat_id, chart_id):
     db_models.Chart.objects(chat_id=chat_id, chart_id=chart_id).update_one(inc__notified_count=1,
                                                                            upsert=True)
     logger.info(f"Incremented notified count for chat {chat_id} chart {chart_id}")
+
+
+def get_chart_names(chat_id):
+    chart_messages = db_models.Chat.objects.get(chat_id=chat_id).chart_messages
+    chart_names = [i.chart_name for i in chart_messages]
+    return chart_names
+
+
+def validate_chart_name(chat_id, chart_name):
+    chart_names = get_chart_names(chat_id)
+    return chart_name in chart_names
+
+
+def get_chart_id(chat_id, chart_name):
+    chart_message = db_models.Chat.objects.get(chat_id=chat_id).chart_messages.get(chart_name=chart_name)
+    chart_id = chart_message.chart_id
+    logger.info("Found chart_id")
+    return chart_id
+

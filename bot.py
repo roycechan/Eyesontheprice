@@ -45,8 +45,9 @@ TYPE_CHART_NAME, \
 STORE_SUGGESTION, \
 CHART_COMMANDS, \
 DISPLAY_CHARTS, \
-FIND_CHART \
-    = range(10)
+FIND_CHART, \
+DELETE_CHART \
+    = range(11)
 
 SUPPORTED_CHANNELS = ['shopee']
 
@@ -67,7 +68,10 @@ add_product_existing_reply_keyboard = ["I'll like to add this product",
 
 chart_reply_keyboard = ['Find chart',
                         'Delete chart',
-                        'Add new chart']
+                        'Add product into existing chart',
+                        'Delete product from existing chart'
+                        ]
+
 
 def start(update, context):
     context_clear(context)
@@ -294,12 +298,22 @@ def chart(update, context):
 
 
 def display_charts(update, context):
+    chart_choice = update.message.text
     chat_id = str(update.message.chat.id)
     chart_names = db_utils.get_chart_names(chat_id)
-    update.message.reply_text(f"Which chart would you like to see?",
+    update.message.reply_text(f"Which chart would you like to retrieve or edit?",
                               reply_markup=ReplyKeyboardMarkup.from_column(chart_names,
                                                                            one_time_keyboard=True))
-    return FIND_CHART
+
+    if "Find chart" in chart_choice:
+        return FIND_CHART
+    elif "Delete chart" in chart_choice:
+        return DELETE_CHART
+    #
+    # ndler(Filters.regex("^Find chart$|^Delete chart$"), display_charts),
+    # MessageHandler(Filters.regex("^Add chart$"), add_chart),
+    # MessageHandler(Filters.regex("^Add product into existing chart$"), display_charts),
+    # MessageHandler(Filters.regex("^Delete product from existing chart$"), display_charts),
 
 
 def find_chart(update, context):
@@ -309,6 +323,11 @@ def find_chart(update, context):
     logger.info(f"{user.first_name} is finding {chart_name}")
     chart_id = db_utils.get_chart_id(chat_id, chart_name)
     logger.info(f"DB: Found {user.first_name}'s {chart_name} message {chart_id}")
+    return chat_id, chart_id
+
+
+def retrieve_chart(update, context):
+    chat_id, chart_id = find_chart(update, context)
     bot.send_message(chat_id=chat_id,
                      text=f"Found it! Jump to your chart by clicking on the message above",
                      reply_to_message_id=chart_id,
@@ -317,17 +336,25 @@ def find_chart(update, context):
 
 
 def delete_chart(update, context):
-    chart_name = update.message.text
-    chat_id = str(update.message.chat.id)
-    user = update.message.from_user
-    logger.info(f"{user.first_name} is deleting {chart_name}")
-    chart_id = db_utils.get_chart_id(chat_id, chart_name)
-    logger.info(f"DB: Found {user.first_name}'s {chart_name} message {chart_id}")
+    chat_id, chart_id = find_chart(update, context)
+    db_utils.delete_chart(chat_id, chart_id)
+    bot.send_message(chat_id=chat_id,
+                     text=f"Found it! We've stopped tracking this chart.",
+                     reply_to_message_id=chart_id,
+                     reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
 def add_chart(update, context):
     return prompt_url()
+
+
+def add_product_chart(update, context):
+    return None
+
+
+def delete_product_chart(update, context):
+    return None
 
 
 def end(update, context):
@@ -433,9 +460,13 @@ def main():
 
             CHART_COMMANDS: [MessageHandler(Filters.regex("^Find chart$|^Delete chart$"), display_charts),
                              MessageHandler(Filters.regex("^Add chart$"), add_chart),
+                             MessageHandler(Filters.regex("^Add product into existing chart$"), display_charts),
+                             MessageHandler(Filters.regex("^Delete product from existing chart$"), display_charts),
                              ],
 
-            FIND_CHART: [MessageHandler(Filters.text, find_chart)],
+            FIND_CHART: [MessageHandler(Filters.text, retrieve_chart)],
+
+            DELETE_CHART: [MessageHandler(Filters.text, delete_chart)],
 
             DISPLAY_CHARTS: [MessageHandler(Filters.text, get_threshold_and_send_graph)]
 

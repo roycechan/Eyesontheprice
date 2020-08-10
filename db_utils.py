@@ -250,3 +250,27 @@ def get_chart_id(chat_id, chart_name):
     logger.info("Found chart_id")
     return chart_id
 
+
+def delete_chart(chat_id, chart_id):
+    logger.info(f"Deleting chat_id {chat_id} chart_id {chart_id}")
+    # delete from chart
+    try:
+        db_models.Chart.objects(chat_id=chat_id, chart_id=chart_id).delete()
+    except:
+        logger.info(f"Chart not found")
+    logger.info(f"Deleted from Chart")
+    # delete from chat
+    try:
+        chart_message = db_models.Chat.objects.get(chat_id=chat_id).chart_messages.get(chart_id=chart_id)
+        variants = chart_message.variants
+        db_models.Chat.objects(chat_id=chat_id).update(pull__chart_messages__chart_id=chart_id)
+    except:
+        logger.info(f"Chat not found")
+    logger.info(f"Deleted chart_message from Chat")
+    # delete from variant
+    logger.info(f"Deleting chat_id and chart_id from {len(variants)} variants")
+    for variant_id in variants:
+        db_models.ItemVariant.objects(variant_id=variant_id).update(pull__chat_ids=chat_id,
+                                                                    pull__chart_ids=chart_id)
+        logger.info(f"Deleted variant {variant_id}")
+    logger.info(f"DB delete operation complete")

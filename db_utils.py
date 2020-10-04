@@ -162,16 +162,11 @@ def add_chart_variant(item_variant_dict, context):
     logger.info("add_chart_variant: Created chart variant")
     return chart_variant
 
+# todo: call add_chart_variant and upsert into existing chart
+# todo: update ItemVariant
+def add_product_in_chart():
+    return None
 
-# def add_price(context):
-#     index = context.chat_data['chosen_variant_index']
-#     price_dict = {
-#         'price': context.chat_data["variants"][index]['current_price'],
-#         'date': datetime.now()
-#     }
-#     price = db_models.Price(**price_dict)
-#     logger.info("add_price: Created price")
-#     return price
 
 def add_price(item_variant_dict):
     # index = context.chat_data['chosen_variant_index']
@@ -197,6 +192,9 @@ def store_in_db(context):
     logger.info(f"DB: Chat stored")
     logger.info(f"DB: Completed DB operation.")
 
+def store_in_db_new_product_in_chart(context):
+    # todo: overall method to store product
+    return None
 
 def store_in_db_suggestion(context):
     # Store in db chat, chart, chart variant

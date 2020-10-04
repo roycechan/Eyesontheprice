@@ -63,10 +63,11 @@ threshold_reply_keyboard = ['When price drops by more than 10%',
                             'When price drops by more than 30%',
                             "I don't need an update"]
 
-add_product_existing_reply_keyboard = ["I'll like to add this product",
+add_product_existing_reply_keyboard = ["I'll like to add another product",
                                        "I don't have another product to add"]
 
 chart_reply_keyboard = ['Find chart',
+
                         'Delete chart',
                         'Add product into existing chart',
                         'Delete product from existing chart'
@@ -180,11 +181,15 @@ def get_variants(update, context):
 
 def get_chart_name(update, context):
     user = context.chat_data['user']
-    update.message.reply_text(f"Now, it's time to give your chart a name!\n\n" 
-                               "You can retrieve this chart through its name next time!")
-    logger.info(f"BOT: prompted {user.first_name} for chart name")
+    if context.chat_data['existing_chart_flow'] is 1:
+        db_utils.store_in_db_new_product_in_chart(context)
+        return ConversationHandler.END
+    else:
+        update.message.reply_text(f"Now, it's time to give your chart a name!\n\n" 
+                                   "You can retrieve this chart through its name next time!")
+        logger.info(f"BOT: prompted {user.first_name} for chart name")
 
-    return TYPE_CHART_NAME
+        return TYPE_CHART_NAME
 
 
 def display_threshold(update, context):
@@ -214,9 +219,6 @@ def get_threshold_and_send_graph(update, context):
     chosen_threshold = update.message.text
     logger.info(f"{user.first_name} chose {chosen_threshold}")
     parsed_threshold = utils.parse_threshold(chosen_threshold)
-
-    # todo set callback details
-    # todo: add reply for other variants
 
     message = "Great! You've chosen to track the following: \n\n"
     number = 1
@@ -290,6 +292,7 @@ def store_suggestion(update, context):
 
 
 def chart(update, context):
+    context_clear(context)
     logger.info(f"BOT: User requesting chart information")
     update.message.reply_text(f"Finding a chart that you previously saved? Need to add a new chart?",
                               reply_markup=ReplyKeyboardMarkup.from_column(chart_reply_keyboard,
@@ -350,6 +353,12 @@ def add_chart(update, context):
 
 
 def add_product_chart(update, context):
+    context.chat_data['existing_chart_flow'] = 1
+    chat_id, chart_id = find_chart(update, context)
+    context.chat_data["chat_id"] = chat_id
+    context.chat_data["chart_id"] = chart_id
+    prompt_next_url(update, context)
+
     return None
 
 
